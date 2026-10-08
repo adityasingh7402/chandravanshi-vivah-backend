@@ -9,7 +9,7 @@ Central record for the 18 backend steps. Each step file also carries its own fro
 | # | Step | Depends on | Build | Audit | Verdict | Auditor | Date | Regressed by | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | 01 | [Project Setup & Configuration](01-project-setup-and-config.md) | — | B | P | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | lint 0; 34/34 tests; 11/11 live checks; not a git repo |
-| 02 | [MongoDB Connection](02-mongodb-connection.md) | 01 | — | — | — | | | | |
+| 02 | [MongoDB Connection](02-mongodb-connection.md) | 01 | B | P | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | 61/61 tests; connect-before-listen; not an Atlas cluster (G3.2/G3.3 unverified) |
 | 03 | [User & Authentication](03-user-authentication.md) | 02 | — | — | — | | | | |
 | 04 | [Session / Token Handling](04-session-token-handling.md) | 03 | — | — | — | | | | |
 | 05 | [Master Data](05-master-data.md) | 04 | — | — | — | | | | |
@@ -34,7 +34,7 @@ Per-gate results, so a partial audit is visible rather than hidden behind one ve
 | # | G1 Build | G2 Functional | G3 Security | G4 Perf/Data | G5 Spec | Result |
 |---|---|---|---|---|---|---|
 | 01 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
-| 02 | ☐ | ☐ | ☐ | ☐ | ☐ | |
+| 02 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
 | 03 | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | 04 | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | 05 | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -59,6 +59,7 @@ Append-only. One row per audit run, including re-runs triggered by the regressio
 | Date | Step | Gates run | Verdict | Auditor | Evidence / findings |
 |---|---|---|---|---|---|
 | 2026-10-08 | 01 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm run lint` exit 0; `npm test` 34/34; `node verify-step01.mjs` 11/11 live checks; fail-fast exit 1 on empty `JWT_SECRET`. Notes: not a git repo (G1.3/G3.5 git evidence unavailable); Windows does not deliver POSIX signals to child processes (G2.5 driven directly in tests). |
+| 2026-10-08 | 02 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm test` 61/61 (0 skipped); boot logs `database connected` before `server listening`; health reports `database.connected=true`; `verify-indexes.js` exit 0 and proven to exit 1 on a removed index; unreachable cluster exits 1 with `[redacted-host]`; `isValidObjectId('{$ne:null}')===false`; step 01 regression 11/11. Notes: G3.2/G3.3 (Atlas user role + network allowlist) not verifiable against a local mongod; G3.5 git evidence unavailable (not a git repo); Windows signal limitation for G2.3. |
 
 ## Regression watchlist
 

@@ -170,6 +170,19 @@ function buildConfig() {
     throw new ConfigurationError('MONGODB_URI', 'must start with mongodb:// or mongodb+srv://.');
   }
 
+  // Database name is kept separate from the URI so it can differ per
+  // environment without rewriting the secret connection string (step 02).
+  const mongodbDbName = requireString('MONGODB_DB_NAME', { maxLength: 64 });
+  if (!/^[A-Za-z0-9_-]+$/.test(mongodbDbName)) {
+    throw new ConfigurationError('MONGODB_DB_NAME', 'must contain only letters, numbers, underscores or dashes.');
+  }
+
+  const dbMaxPoolSize = integer('DB_MAX_POOL_SIZE', { fallback: 10, min: 1, max: 500 });
+  const dbServerSelectionTimeoutMs = integer('DB_SERVER_SELECTION_TIMEOUT_MS', { fallback: 5000, min: 100, max: 60000 });
+  const dbConnectTimeoutMs = integer('DB_CONNECT_TIMEOUT_MS', { fallback: 10000, min: 100, max: 120000 });
+  // 0 means "no socket timeout" in the driver; only positive values are capped.
+  const dbSocketTimeoutMs = integer('DB_SOCKET_TIMEOUT_MS', { fallback: 45000, min: 0, max: 300000 });
+
   return Object.freeze({
     nodeEnv,
     isDevelopment: nodeEnv === 'development',
@@ -190,7 +203,16 @@ function buildConfig() {
       refreshTtl: jwtRefreshTtl,
       refreshTtlMs: jwtRefreshTtlMs
     }),
-    mongodbUri
+    mongodbUri,
+    mongodbDbName,
+    db: Object.freeze({
+      maxPoolSize: dbMaxPoolSize,
+      serverSelectionTimeoutMs: dbServerSelectionTimeoutMs,
+      connectTimeoutMs: dbConnectTimeoutMs,
+      socketTimeoutMs: dbSocketTimeoutMs,
+      // Index auto-build is a development convenience only (spec §49, §105).
+      autoIndex: nodeEnv === 'development'
+    })
   });
 }
 

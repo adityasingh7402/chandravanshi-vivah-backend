@@ -4,6 +4,7 @@ const express = require('express');
 const { ok } = require('../utils/apiResponse');
 const config = require('../config/env');
 const { API_PREFIX } = require('../config/constants');
+const { getConnectionState, isConnected } = require('../config/db');
 const { version } = require('../../package.json');
 
 /**
@@ -21,7 +22,13 @@ router.get('/health', (req, res) =>
     version,
     // Seconds the process has been up; useful as a liveness signal.
     uptime: Math.round(process.uptime()),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    // Database readiness only — never the URI, host list or database name
+    // (spec §38, §111).
+    database: {
+      state: getConnectionState(),
+      connected: isConnected()
+    }
   })
 );
 

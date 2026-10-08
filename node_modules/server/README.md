@@ -1,11 +1,13 @@
 # Chandravanshi Vivah — Express API (`server/`)
 
 Backend for the Chandravanshi matrimonial platform. This package currently contains **step 01 — project setup and
-configuration**: the app object, config validation, response envelope, centralised errors, security headers, CORS,
-body/rate limits, request logging and the health endpoint. No database, auth or domain route exists yet.
+configuration** and **step 02 — MongoDB connection**: the app object, config validation, response envelope,
+centralised errors, security headers, CORS, body/rate limits, request logging, the health endpoint, plus the single
+MongoDB connection helper, shared schema conventions and the collection-name registry. No auth or domain route
+exists yet.
 
-Source of truth for behaviour: `../docs/steps/01-project-setup-and-config.md`, which cites the backend specification
-and the profile fields dictionary.
+Source of truth for behaviour: `../docs/steps/01-project-setup-and-config.md` and
+`../docs/steps/02-mongodb-connection.md`, which cite the backend specification and the profile fields dictionary.
 
 ## Requirements
 
@@ -63,7 +65,12 @@ read **and validated** by `src/config/env.js`; anything missing or malformed sto
 | `JWT_SECRET` | **yes** | — | 04 | ≥ 32 chars; placeholder values rejected |
 | `JWT_ACCESS_TTL` | **yes** | — | 04 | e.g. `15m` |
 | `JWT_REFRESH_TTL` | **yes** | — | 04 | e.g. `7d`; must be longer than the access TTL |
-| `MONGODB_URI` | **yes** | — | 02 | `mongodb://` or `mongodb+srv://` |
+| `MONGODB_URI` | **yes** | — | 02 | `mongodb://` or `mongodb+srv://`; the most sensitive value in the app |
+| `MONGODB_DB_NAME` | **yes** | — | 02 | Database name, kept out of the URI |
+| `DB_MAX_POOL_SIZE` | no | `10` | 02 | Connection pool ceiling (1–500) |
+| `DB_SERVER_SELECTION_TIMEOUT_MS` | no | `5000` | 02 | Fail fast when the cluster is unreachable |
+| `DB_CONNECT_TIMEOUT_MS` | no | `10000` | 02 | Initial connect timeout |
+| `DB_SOCKET_TIMEOUT_MS` | no | `45000` | 02 | Socket timeout; `0` disables it |
 
 **Precedence:** an environment variable already present in the shell overrides `.env` — that is standard `dotenv`
 behaviour and is what lets a host inject real configuration. Two consequences worth knowing:
@@ -86,6 +93,7 @@ Recorded at install time; verify again if the lockfile changes.
 | `pino-http` | 11.0.0 | Per-request logging |
 | `dotenv` | 18.0.6 | `.env` loading (spec §79) |
 | `zod` | 4.6.5 | Request validation, used from step 03 |
+| `mongoose` | 9.11.1 | MongoDB driver + ODM (spec §38, §39) |
 | `eslint` | 10.12.0 | Lint (dev) |
 
 ## Layout
@@ -97,7 +105,11 @@ server/
 │   ├── server.js              # loads config, listens, shuts down gracefully
 │   ├── config/
 │   │   ├── env.js             # loads + validates env, exports a frozen config
-│   │   └── constants.js       # prefix, status codes, error codes, pagination
+│   │   ├── constants.js       # prefix, status codes, error codes, pagination
+│   │   ├── collections.js     # canonical collection names (single source of truth)
+│   │   └── db.js              # the only place a MongoDB connection is created
+│   ├── models/
+│   │   └── plugins/baseSchema.js  # timestamps, versionKey off, strict, JSON transform
 │   ├── middleware/
 │   │   ├── requestId.js       # correlation id
 │   │   ├── requestLogger.js   # allowlisted request logging (spec §78)
@@ -108,7 +120,10 @@ server/
 │   └── utils/
 │       ├── apiResponse.js     # ok() / fail()
 │       ├── AppError.js        # typed operational errors
+│       ├── objectId.js        # isValidObjectId() guard (spec §35)
 │       └── gracefulShutdown.js
+├── scripts/
+│   └── verify-indexes.js      # asserts required indexes exist
 ├── tests/                     # node:test suites
 ├── .env                       # your local values (gitignored)
 ├── .env.example               # names + placeholders only
@@ -121,17 +136,21 @@ Middleware order in `app.js` is fixed: request id → logger → helmet → CORS
 ## Running the checks
 
 ```bash
-npm run lint   # exit 0
-npm test       # 34 tests, exit 0
+npm run lint               # exit 0
+npm test                   # exit 0
+node scripts/verify-indexes.js   # exit 0; prints the index baseline
 
 npm start
 curl -sS http://localhost:3000/api/v1/health
 ```
 
+The database-dependent tests connect to the configured cluster; when none is reachable they **skip with an explicit
+reason** rather than passing silently.
+
 Expected health payload:
 
 ```json
-{ "success": true, "data": { "status": "ok", "env": "development", "version": "0.1.0", "uptime": 41, "timestamp": "…" }, "message": "OK" }
+{ "success": true, "data": { "status": "ok", "env": "development", "version": "0.1.0", "uptime": 41, "timestamp": "…", "database": { "state": "connected", "connected": true } }, "message": "OK" }
 ```
 
 ## Notes
@@ -142,6 +161,14 @@ Expected health payload:
   strings, bodies and remote addresses are never serialised; connection strings and key/value pairs are scrubbed
   from free-text error messages.
 - **Stack traces** appear in a 500 response only when `NODE_ENV` is not `production`.
+- **Database access is server-only** (spec §2, §38): the URI never reaches a client, is never logged, and `db.js`
+  scrubs connection strings, host lists, credentials and the database name out of driver error messages before they
+  are logged.
+- **Schema conventions** come from `models/plugins/baseSchema.js`: `timestamps`, `versionKey: false`, `strict: true`,
+  and a JSON transform that strips any path flagged `internal: true`.
+- **Collection names** come from `src/config/collections.js` only — no model writes a collection string literal.
+- **Indexes** are verified by `scripts/verify-indexes.js`: `autoIndex` is off outside development, so every required
+  index is created and checked explicitly (spec §49, §105).
 - **Shutdown** is covered by `src/utils/gracefulShutdown.js`. Node on Windows does not deliver `SIGINT`/`SIGTERM` to
   a handler when the signal comes from `child.kill()`, so `tests/shutdown.test.js` drives the function directly
-  rather than claiming an OS-level signal test it cannot perform.
+  rather than claiming an OS-level signal test it cannot perform. The shutdown hook closes the MongoDB connection.
