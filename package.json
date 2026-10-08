@@ -1,0 +1,17 @@
+{
+  "name": "chandravanshi-vivah-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chandravanshi Vivah - Express.js backend for the matrimonial platform",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "npm --prefix server run dev",
+    "start": "npm --prefix server run start",
+    "lint": "npm --prefix server run lint",
+    "test": "npm --prefix server run test",
+    "install:server": "npm --prefix server install"
+  }
+}
