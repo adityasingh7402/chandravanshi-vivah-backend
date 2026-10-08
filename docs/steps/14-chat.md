@@ -9,18 +9,22 @@ unblocks: [16]
 spec_refs: ["§21", "§22", "§24", "§25", "§44", "§52", "§91", "§100", "§105", "§112", "§115"]
 ---
 
-# Step 14 — Chat
+# Step 14 — Chat (Future Plan)
+
+> **Future plan only:** Chat is not part of the current implementation scope. Do not build or integrate the
+> models, services, routes, notifications, or realtime transport described in this document until chat is
+> explicitly scheduled for a future phase.
 
 ## Goal
 
-Provide text messaging between connected users only. MongoDB remains the persistence layer; the backend decides
-whether communication is allowed, and the client is never the authority (spec §25, §100). The first version is
-deliberately text-only — no attachments or media (spec §25) — with realtime delivery left as an optional layer on
-top of a correct persistence model.
+When this feature is scheduled, provide text messaging between connected users only. MongoDB remains the persistence
+layer; the backend decides whether communication is allowed, and the client is never the authority (spec §25, §100).
+The planned first version is deliberately text-only — no attachments or media (spec §25) — with realtime delivery
+left as an optional layer on top of a correct persistence model.
 
 ## Scope
 
-**In scope**
+**Planned scope for a future phase (not current implementation)**
 
 - `conversations` and `messages` schemas per spec §25.
 - Conversation creation from an accepted connection, with an idempotent one-conversation-per-pair rule.
@@ -115,9 +119,10 @@ model.
 | GET | `/api/v1/conversations/:conversationId/messages` | authenticated, participant | Paginated history |
 | POST | `/api/v1/conversations/:conversationId/messages` | authenticated, participant and eligible | Send a text message |
 
-## Build tasks
+## Future implementation plan
 
-- [ ] 1. Write `models/Conversation.js` and `models/Message.js` with the schemas, base plugin, and indexes, including
+- [ ] 1. When chat is scheduled, write `models/Conversation.js` and `models/Message.js` with the schemas, base
+      plugin, and indexes, including
       the normalised-pair unique index.
 - [ ] 2. Write `chatPolicy.canChat(a, b)`: return true only when an `accepted` connection exists (not `closed`,
       `rejected`, `withdrawn`, or `expired`) **and** no block exists either way **and** both accounts are `active`
@@ -168,7 +173,9 @@ CHAT_RATE_LIMIT_WINDOW     # send window
 CHAT_RATE_LIMIT_MAX        # sends per window (per user)
 ```
 
-## Verification commands
+## Future verification commands
+
+Run these commands only after chat has been explicitly scheduled and implemented:
 
 ```bash
 A=...   # account A (in an accepted connection with B)
@@ -228,7 +235,9 @@ for i in $(seq 1 200); do curl -sS -o /dev/null -X POST \
 # Expected: 429s after the threshold
 ```
 
-## Audit checklist
+## Future audit checklist
+
+Apply this checklist only after chat has been scheduled and implemented:
 
 ### Gate 1 — Build integrity
 
@@ -289,7 +298,9 @@ for i in $(seq 1 200); do curl -sS -o /dev/null -X POST \
 | Gate 5 | ☐ pass ☐ fail |
 | **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
 
-## Acceptance criteria
+## Future acceptance criteria
+
+These criteria apply only when chat is implemented in a later phase:
 
 - [ ] Only connected, unblocked, active users can exchange messages.
 - [ ] Conversations are unique per pair and correct for both participants.

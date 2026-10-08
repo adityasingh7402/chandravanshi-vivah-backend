@@ -9,9 +9,9 @@ Central record for the 18 backend steps. Each step file also carries its own fro
 | # | Step | Depends on | Build | Audit | Verdict | Auditor | Date | Regressed by | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | 01 | [Project Setup & Configuration](01-project-setup-and-config.md) | — | B | P | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | lint 0; 34/34 tests; 11/11 live checks; not a git repo |
-| 02 | [MongoDB Connection](02-mongodb-connection.md) | 01 | B | P | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | 61/61 tests; connect-before-listen; not an Atlas cluster (G3.2/G3.3 unverified) |
-| 03 | [User & Authentication](03-user-authentication.md) | 02 | — | — | — | | | | |
-| 04 | [Session / Token Handling](04-session-token-handling.md) | 03 | — | — | — | | | | |
+| 02 | [MongoDB Connection](02-mongodb-connection.md) | 01 | B | F | FAIL | Buffy (automated) | 2026-10-08 | 03 | G3.2 FAILS: the app connects to Atlas as an `atlasAdmin` (cluster admin) user, violating the least-privilege rule (spec §39). Discovered while verifying step 03. |
+| 03 | [User & Authentication](03-user-authentication.md) | 02 | B | P | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | 94/94 tests, 12/12 live checks; partial-index COLLSCAN defect found and fixed; inherits the step 02 G3.2 blocker. |
+| 04 | [Session / Token Handling](04-session-token-handling.md) | 03 | B | N | PASS WITH NOTES | Buffy (automated) | 2026-10-08 | | 119/119 tests; 26/26 live checks; step 01 regression 11/11, step 03 regression 12/12; typed 401/403 `code` missing from the error envelope — found and fixed; inherits the step 02 G3.2 blocker. |
 | 05 | [Master Data](05-master-data.md) | 04 | — | — | — | | | | |
 | 06 | [Matrimonial Profile](06-matrimonial-profile.md) | 05 | — | — | — | | | | |
 | 07 | [Partner Preferences](07-partner-preferences.md) | 06 | — | — | — | | | | |
@@ -21,7 +21,7 @@ Central record for the 18 backend steps. Each step file also carries its own fro
 | 11 | [Interests / Connections](11-interests-connections.md) | 10 | — | — | — | | | | |
 | 12 | [Block & Report](12-block-report.md) | 11 | — | — | — | | | | |
 | 13 | [Notifications](13-notifications.md) | 12 | — | — | — | | | | |
-| 14 | [Chat](14-chat.md) | 11 | — | — | — | | | | |
+| 14 | [Chat (Future Plan)](14-chat.md) | 11 | — | — | — | | | | Future phase; do not implement in the current scope |
 | 15 | [Subscription / Entitlement](15-subscription-entitlement.md) | 04 | — | — | — | | | | |
 | 16 | [Admin & Moderation](16-admin-moderation.md) | 12, 13, 14, 15 | — | — | — | | | | |
 | 17 | [Performance Testing](17-performance-testing.md) | 16 | — | — | — | | | | |
@@ -34,9 +34,9 @@ Per-gate results, so a partial audit is visible rather than hidden behind one ve
 | # | G1 Build | G2 Functional | G3 Security | G4 Perf/Data | G5 Spec | Result |
 |---|---|---|---|---|---|---|
 | 01 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
-| 02 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
-| 03 | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| 04 | ☐ | ☐ | ☐ | ☐ | ☐ | |
+| 02 | ☑ | ☑ | ☒ | ☑ | ☑ | FAIL |
+| 03 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
+| 04 | ☑ | ☑ | ☑ | ☑ | ☑ | PASS WITH NOTES |
 | 05 | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | 06 | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | 07 | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -60,6 +60,18 @@ Append-only. One row per audit run, including re-runs triggered by the regressio
 |---|---|---|---|---|---|
 | 2026-10-08 | 01 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm run lint` exit 0; `npm test` 34/34; `node verify-step01.mjs` 11/11 live checks; fail-fast exit 1 on empty `JWT_SECRET`. Notes: not a git repo (G1.3/G3.5 git evidence unavailable); Windows does not deliver POSIX signals to child processes (G2.5 driven directly in tests). |
 | 2026-10-08 | 02 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm test` 61/61 (0 skipped); boot logs `database connected` before `server listening`; health reports `database.connected=true`; `verify-indexes.js` exit 0 and proven to exit 1 on a removed index; unreachable cluster exits 1 with `[redacted-host]`; `isValidObjectId('{$ne:null}')===false`; step 01 regression 11/11. Notes: G3.2/G3.3 (Atlas user role + network allowlist) not verifiable against a local mongod; G3.5 git evidence unavailable (not a git repo); Windows signal limitation for G2.3. |
+| 2026-10-08 | 02 (re-verify) | G3 | **FAIL** | Buffy (automated) | Re-verification triggered by step 03: the cluster is Atlas, not a local mongod. `connectionStatus` reports `authenticatedUserRoles: [{ role: "atlasAdmin", db: "admin" }]` for `adityasingh515999_db_user`. **G3.2 fails** — a cluster-admin credential is used by the application (spec §39). Step 02 verdict changed from PASS WITH NOTES to FAIL. |
+| 2026-10-08 | 03 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm run lint` exit 0; `npm test` 94/94 (0 skipped); `verify-step03.mjs` 12/12 live checks; step 01 regression 11/11; `verify-indexes.js` exit 0 (`users.email_1`, `users.phone_1`); no submitted password or `$argon2` hash in logs; `explain()` shows `IXSCAN` on `email_1`. Notes: fixed a real defect (partial index was not used by a plain identifier lookup → COLLSCAN); inherits step 02 G3.2; `change-password` HTTP route needs step 04's session middleware. |
+| 2026-10-08 | 04 | G1–G5 | PASS WITH NOTES | Buffy (automated) | `npm run lint` exit 0; `npm test` 119/119 (0 skipped); `verify-step04.mjs` 26/26 live checks (twice: raised limits and default `AUTH_RATE_LIMIT_MAX=10`); regressions: step 01 11/11, step 03 12/12; `verify-indexes.js` exit 0 (`sessions.userId_1`, `sessions.refreshTokenHash_1` unique, `sessions.expiresAt_1` TTL); refresh `explain()` → `IXSCAN`; log scan of all 15 minted tokens → 0 matches. **Found and fixed:** the error handler passed `body.code` where `code` sat beside `body`, so no failure envelope carried the machine-readable `code` — the typed 401/403 codes would have been invisible to clients (`middleware/errorHandler.js`). Notes: inherits step 02 G3.2; not a git repo; 14-chat.md externally reframed (validator errors belong to that file, untouched here). |
+
+## Blocking security items
+
+Items that must be closed before the corresponding surface is production-safe. A blocking item invalidates the
+affected step's pass until it is resolved and re-verified.
+
+| # | Item | Step | Severity | Required action | Status |
+|---|---|---|---|---|---|
+| 1 | Application connects to Atlas as an `atlasAdmin` (cluster admin) instead of a least-privilege application user (spec §39). The API process therefore holds a credential that can administer/drop any database on the cluster. | 02 (G3.2) | High | Create a dedicated Atlas database user with the built-in `readWrite` role scoped to the application database; keep admin credentials entirely out of the application environment; then re-verify G3.2. | **OPEN** |
 
 ## Regression watchlist
 

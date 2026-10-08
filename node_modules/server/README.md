@@ -1,13 +1,15 @@
 # Chandravanshi Vivah — Express API (`server/`)
 
 Backend for the Chandravanshi matrimonial platform. This package currently contains **step 01 — project setup and
-configuration** and **step 02 — MongoDB connection**: the app object, config validation, response envelope,
-centralised errors, security headers, CORS, body/rate limits, request logging, the health endpoint, plus the single
-MongoDB connection helper, shared schema conventions and the collection-name registry. No auth or domain route
-exists yet.
+configuration**, **step 02 — MongoDB connection**, **step 03 — user & authentication** and **step 04 — session /
+token handling**: the app object, config validation, response envelope, centralised errors, security headers, CORS,
+body/rate limits, request logging, the health endpoint, the single MongoDB connection helper, shared schema
+conventions, the collection-name registry, account registration / login verification / change-password with Argon2id
+hashing, and the short-lived access token + rotating opaque refresh token session model with `requireAuth` /
+`optionalAuth` / `requireRole` middleware. No profile or other domain route exists yet.
 
-Source of truth for behaviour: `../docs/steps/01-project-setup-and-config.md` and
-`../docs/steps/02-mongodb-connection.md`, which cite the backend specification and the profile fields dictionary.
+Source of truth for behaviour: the step files under `../docs/steps/`, which cite the backend specification and the
+profile fields dictionary.
 
 ## Requirements
 
@@ -71,6 +73,18 @@ read **and validated** by `src/config/env.js`; anything missing or malformed sto
 | `DB_SERVER_SELECTION_TIMEOUT_MS` | no | `5000` | 02 | Fail fast when the cluster is unreachable |
 | `DB_CONNECT_TIMEOUT_MS` | no | `10000` | 02 | Initial connect timeout |
 | `DB_SOCKET_TIMEOUT_MS` | no | `45000` | 02 | Socket timeout; `0` disables it |
+| `PASSWORD_MIN_LENGTH` | no | `8` | 03 | Minimum accepted password length |
+| `ARGON2_MEMORY` | no | `19456` | 03 | Argon2id memory cost, KiB (OWASP minimum) |
+| `ARGON2_ITERATIONS` | no | `2` | 03 | Argon2id time cost |
+| `ARGON2_PARALLELISM` | no | `1` | 03 | Argon2id lanes |
+| `DEFAULT_PHONE_COUNTRY` | no | `IN` | 03 | ISO code used when a phone has no country code |
+| `AUTH_RATE_LIMIT_WINDOW` | no | `900` | 03 | Register/login window, seconds |
+| `AUTH_RATE_LIMIT_MAX` | no | `10` | 03 | Register/login attempts per window |
+| `JWT_ISSUER` | no | `chandravanshi-vivah-api` | 04 | `iss` claim, checked on every verification |
+| `JWT_AUDIENCE` | no | `chandravanshi-vivah-clients` | 04 | `aud` claim, checked on every verification |
+| `REFRESH_TOKEN_BYTES` | no | `32` | 04 | Entropy of the opaque refresh token (16–128 bytes) |
+| `COOKIE_DOMAIN` | no | *(empty)* | 04 | Cookie `Domain`; empty = host-only cookie |
+| `COOKIE_SAME_SITE` | no | `lax` | 04 | `lax` \| `strict` \| `none`; `none` requires production |
 
 **Precedence:** an environment variable already present in the shell overrides `.env` — that is standard `dotenv`
 behaviour and is what lets a host inject real configuration. Two consequences worth knowing:
@@ -94,7 +108,14 @@ Recorded at install time; verify again if the lockfile changes.
 | `dotenv` | 18.0.6 | `.env` loading (spec §79) |
 | `zod` | 4.6.5 | Request validation, used from step 03 |
 | `mongoose` | 9.11.1 | MongoDB driver + ODM (spec §38, §39) |
+| `@node-rs/argon2` | 2.2.2 | Argon2id password hashing (prebuilt binary) |
+| `jsonwebtoken` | 9.0.3 | HS256 access tokens, pinned algorithm + issuer/audience (step 04) |
+| `cookie-parser` | 1.4.7 | Reads the HttpOnly refresh cookie (step 04) |
 | `eslint` | 10.12.0 | Lint (dev) |
+
+Password hashing uses **Argon2id** with parameters from config (defaults `m=19456, t=2, p=1`, the OWASP minimum).
+`passwordService.needsRehash()` upgrades a weaker stored hash on the next successful login, so raising the cost needs
+no data migration.
 
 ## Layout
 
@@ -108,18 +129,40 @@ server/
 │   │   ├── constants.js       # prefix, status codes, error codes, pagination
 │   │   ├── collections.js     # canonical collection names (single source of truth)
 │   │   └── db.js              # the only place a MongoDB connection is created
+│   ├── constants/
+│   │   ├── auth.js            # role/status/identifier/device enums + client-safe messages
+│   │   └── errors.js          # 401/403 machine-readable codes (spec §77)
 │   ├── models/
+│   │   ├── User.js            # users schema (spec §5)
+│   │   ├── Session.js         # sessions schema: hash-only refresh token, TTL (spec §7)
 │   │   └── plugins/baseSchema.js  # timestamps, versionKey off, strict, JSON transform
 │   ├── middleware/
 │   │   ├── requestId.js       # correlation id
 │   │   ├── requestLogger.js   # allowlisted request logging (spec §78)
 │   │   ├── rateLimit.js       # limiter factory reused by later steps
+│   │   ├── auth.js            # requireAuth / optionalAuth — the reusable identity layer
+│   │   ├── roles.js           # requireRole(...) — the only place role decisions are made
 │   │   ├── notFound.js        # 404 -> envelope
-│   │   └── errorHandler.js    # error -> envelope mapper
-│   ├── routes/index.js        # mounts /api/v1; health only for now
+│   │   └── errorHandler.js    # error -> envelope mapper (carries the machine-readable code)
+│   ├── services/
+│   │   ├── passwordService.js # hash / verify / needsRehash (Argon2id)
+│   │   ├── authService.js     # register / verifyCredentials / changePassword
+│   │   ├── tokenService.js    # sign/verify access JWT; issue/hash opaque refresh tokens
+│   │   └── sessionService.js  # start / find / touch / revoke / rotate sessions
+│   ├── controllers/
+│   │   ├── auth.controller.js   # register / login / change-password (spec §94, §95)
+│   │   └── session.controller.js # refresh / logout / me
+│   ├── validators/
+│   │   └── auth.validators.js # zod schemas; unknown fields rejected
+│   ├── routes/
+│   │   ├── index.js           # mounts /api/v1
+│   │   ├── auth.routes.js     # register/login/change-password with per-route rate limits
+│   │   └── session.routes.js  # refresh (public) / logout / me (requireAuth)
 │   └── utils/
 │       ├── apiResponse.js     # ok() / fail()
 │       ├── AppError.js        # typed operational errors
+│       ├── cookies.js         # HttpOnly refresh cookie: set / clear / read
+│       ├── identifier.js      # email/phone normalisation + E.164
 │       ├── objectId.js        # isValidObjectId() guard (spec §35)
 │       └── gracefulShutdown.js
 ├── scripts/
@@ -130,8 +173,8 @@ server/
 └── .gitignore
 ```
 
-Middleware order in `app.js` is fixed: request id → logger → helmet → CORS → JSON body → rate limit → API router →
-404 → error handler.
+Middleware order in `app.js` is fixed: request id → logger → helmet → CORS (credentials allowed for the explicit
+origin allowlist) → cookie parser → JSON body → rate limit → API router → 404 → error handler.
 
 ## Running the checks
 
@@ -153,8 +196,51 @@ Expected health payload:
 { "success": true, "data": { "status": "ok", "env": "development", "version": "0.1.0", "uptime": 41, "timestamp": "…", "database": { "state": "connected", "connected": true } }, "message": "OK" }
 ```
 
+## API
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | public | `{ identifierType, identifier, password }` → 201 |
+| POST | `/api/v1/auth/login` | public | Verify credentials → access token; web gets an HttpOnly refresh cookie, mobile the refresh token in the body |
+| POST | `/api/v1/auth/refresh` | refresh token | Rotates the session, returns a new access token; replay of a rotated token → 401 |
+| POST | `/api/v1/auth/logout` | session | Revokes the caller's own session only; clears the cookie |
+| GET | `/api/v1/auth/me` | session | The caller's own account summary (`toPublic()` shape) |
+| POST | `/api/v1/auth/change-password` | session | Requires the current password; revokes every other session |
+| GET | `/api/v1/health` | public | Liveness + database readiness |
+
+Login returns one generic `401 Invalid credentials.` for both an unknown identifier and a wrong password, so the
+endpoint cannot be used to enumerate accounts. Request bodies are `.strict()` — an unexpected field (for example
+`role`) is rejected with 400 rather than ignored.
+
+## Session model (step 04)
+
+- **Access token**: short-lived HS256 JWT carrying only `sub`, `role`, `sid` plus `iat`/`exp`/`iss`/`aud` — no
+  profile or contact data (spec §30). The algorithm is pinned in both sign and verify, so `alg: none`, a different
+  secret, a tampered payload, a wrong issuer/audience and HS512 confusion are all rejected.
+- **Refresh token**: opaque `crypto.randomBytes(32)` value. The database stores only its SHA-256 hash, so a leaked
+  `sessions` row is not a replayable credential. Every refresh **rotates**: the old row is revoked and a new token
+  issued; replaying a rotated token returns `401 SESSION_REVOKED`.
+- **Transport**: web receives the token in an `HttpOnly; SameSite=Lax` cookie scoped to
+  `<API_PREFIX>/auth/refresh` (plus `Secure` in production), so client JavaScript can never read it. Mobile clients
+  (`deviceType: android | ios`) receive it in the response body for platform secure storage.
+- **Revocation is immediate**: `requireAuth` checks the session row on every protected request, so logout, rotation
+  and password changes take effect even while an access token is still unexpired. A suspended/blocked/deleted user
+  is refused with `403 ACCOUNT_INACTIVE` regardless of token validity.
+- **Failure codes** (spec §77, in the failure envelope): `AUTHENTICATION_REQUIRED` (no credential), `TOKEN_EXPIRED`
+  (refresh), `TOKEN_INVALID` (sign in again), `REFRESH_TOKEN_INVALID`, `SESSION_REVOKED`, `ACCOUNT_INACTIVE`,
+  `FORBIDDEN`.
+- **Reuse**: `requireAuth` + `requireRole` in `src/middleware/` are the single identity/authorization layer for all
+  later steps; identity comes only from the credential, never from a body or query parameter (spec §31, §44).
+
 ## Notes
 
+- **Open security item:** the current development environment connects to Atlas with an `atlasAdmin` credential.
+  Spec §39 requires a least-privilege application user (built-in `readWrite` scoped to the app database). See
+  *Blocking security items* in `../docs/steps/00-progress-tracker.md`.
+- **Partial indexes need their predicate in the query.** The `email`/`phone` unique indexes are partial
+  (`$type: "string"`), and MongoDB only uses a partial index when the query includes that filter. `authService`
+  therefore looks identifiers up with `{ $and: [{ email: value }, { email: { $type: "string" } }] }`, which
+  `tests/auth.test.js` asserts is an `IXSCAN`.
 - **No secrets in the repo.** `.env` is gitignored, `.env.example` holds placeholders only, and configuration
   errors name the *field* without echoing its value.
 - **Logging is an allowlist.** Only method, route, status, duration and the request id are written. Headers, query

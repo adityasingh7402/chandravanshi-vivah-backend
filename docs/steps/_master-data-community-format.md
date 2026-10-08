@@ -5,6 +5,118 @@ This is an appendix to [`05-master-data.md`](05-master-data.md), not a build ste
 seeder and the user-contributed-option flow have one authoritative source, and so transcription into a seed file
 cannot drift by hand.
 
+## Image-derived corrected caste names
+
+The following is a corrected transcription of the attached reference image. These names are kept separate from the
+existing provisional lists below: entries not present in the image have not been added or changed.
+
+```text
+Bind
+Kewat
+Dhiwar
+Dhinwar
+Dhimar
+Godiya
+Khairwar
+Dhewar
+Gond
+Kaibarta
+Gariya
+Khagi
+Guriya
+Raj Gond
+Kherwar
+Keot
+Kharwar
+Manjhi
+Nishad
+Kahar
+Ram
+Tiyar
+Tayar
+Tiar
+Ramani
+Kamkar
+Kharwara
+Rajvanshi
+Kshatrapati
+Kashyap
+Chandravanshi
+Rawani
+Karmkar
+Bhojpuria
+Jhinwar
+Jheer
+Jhir
+Gond Gariya
+Jhiwar
+Jhimar
+Turaha
+Tureha
+Mallah
+Turah
+Turaiha
+Khirwar
+Majhwar
+Jaliya Kaibarta
+Lodhi Rajput
+Chandravanshi Tomar
+Gaud
+Kahar Gaud
+Raikwar
+Dhawan
+Dheeru
+Mehra
+Mahaar
+Chain
+Chaia
+Duley
+Baidi
+Jhalo-Malo
+Berchain
+Dewar
+Malo
+Gurri
+Gonti
+Keweta
+Kotal
+Kadma
+Keuta
+Keyt
+Kewet
+Keyot
+Kola Kharwar
+Meta
+Namdas
+Namasudra
+Patni
+Tior
+Sardia
+Khatri
+Angikula Kshatriya
+Pali
+Besthar
+Goondla
+Beshta
+Gangaputra
+Gangavar
+Jalari
+Jalkshatriya
+Koracha
+Mathurashi
+Nayvala
+Pattapa
+Thamiya Bhoi
+Vadavaliya
+Vaddi
+Vanyekula Kshatriya
+Bhoi
+Chandravanshi Panik
+Jhalo
+Jhalo Malo
+Malakar
+```
+
 **Rule from the source document: each context is kept separate, with no cross-merging.** The same name (for example
 `Kashyap`) appears as a Kahar gotra, a Yadav gotra, a Rajput gotra, and a Kahar clan — these are four distinct
 records, scoped by their parent context, never merged into one row.
@@ -53,7 +165,7 @@ community: {
 
 ### Kahar Chandravanshi Kshatriya
 
-- **Sub-communities (23):** Batham, Bot, Dhimar / Dhinwar, Dhuriya, Gharuk, Jaiswar, Kamkar, Khawar, Mehar / Mahar, Mallah, Raikwar, Rawani, Singhariya, Turaiya, Bhoi, Guria / Garauwa, Gond, Kaleni, Kamlethar, Hurka, Machhera, Mahara, Panbhara
+- **Sub-communities (23):** Batham, Bot, Dhimar, Dhuriya, Gharuk, Jaiswar, Kamkar, Khawar, Mehar / Mahar, Mallah, Raikwar, Rawani, Singhariya, Turaiya, Bhoi, Guria / Garauwa, Gond, Kaleni, Kamlethar, Hurka, Machhera, Mahara, Panbhara
 - **Surnames (26):** Prasad, Ram, Singh, Verma, Reward, Sindhu, Sing, Das, Bhandare, Gangole, Kachare, Lachure, Ladke, Padre, Simbre, Aliman, Bando, Kanda, Kasyapa, Nag, Rawanpur, Suar, Dahariya, Damrauiya, Imiliya, Muderiya
 - **Gotras (3):** Bharadwaj, Goutam, Kashyap
 - **Clans (6):** Pindwal, Bamnawat, Katariya, Bilawat, Kashyap, Oatasaniya
@@ -125,7 +237,7 @@ The full list, in source order, for direct use as seed input (`server/src/data/m
   },
   {
     "communityName": "Kahar Chandravanshi Kshatriya",
-    "subCommunityName": "Dhimar / Dhinwar",
+    "subCommunityName": "Dhimar",
     "surnameName": null,
     "gotraName": null,
     "clanName": null,

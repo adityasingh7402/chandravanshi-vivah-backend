@@ -11,6 +11,9 @@
 
 const path = require('path');
 const dotenv = require('dotenv');
+// Only the dial-code table is imported (a plain constant); identifier.js does
+// not read config, so there is no cycle.
+const { COUNTRY_DIAL_CODES } = require('../utils/identifier');
 
 const NODE_ENVS = ['development', 'test', 'production'];
 const LOG_LEVELS = ['debug', 'info', 'warn', 'error'];
@@ -165,6 +168,33 @@ function buildConfig() {
     throw new ConfigurationError('JWT_REFRESH_TTL', 'must be longer than JWT_ACCESS_TTL.');
   }
 
+  // --- Session / token transport (step 04) ------------------------------
+  // Issuer and audience are checked on every verification, so a token minted
+  // for another system cannot be replayed here.
+  const jwtIssuer = optionalString('JWT_ISSUER', 'chandravanshi-vivah-api');
+  if (!jwtIssuer || jwtIssuer.length > 128) {
+    throw new ConfigurationError('JWT_ISSUER', 'must be between 1 and 128 characters.');
+  }
+  const jwtAudience = optionalString('JWT_AUDIENCE', 'chandravanshi-vivah-clients');
+  if (!jwtAudience || jwtAudience.length > 128) {
+    throw new ConfigurationError('JWT_AUDIENCE', 'must be between 1 and 128 characters.');
+  }
+
+  // Entropy for the opaque refresh token. 32 bytes = 256 bits.
+  const refreshTokenBytes = integer('REFRESH_TOKEN_BYTES', { fallback: 32, min: 16, max: 128 });
+
+  // Empty means "host-only cookie" (no Domain attribute).
+  const cookieDomain = optionalString('COOKIE_DOMAIN', '');
+  if (cookieDomain && !/^\.?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(cookieDomain)) {
+    throw new ConfigurationError('COOKIE_DOMAIN', 'must be a domain such as example.com, with no scheme or path.');
+  }
+  const cookieSameSite = oneOf('COOKIE_SAME_SITE', ['lax', 'strict', 'none'], 'lax');
+  // Browsers drop SameSite=None without Secure, and Secure is only set in
+  // production, so this combination would be a silently broken login.
+  if (cookieSameSite === 'none' && !isProduction) {
+    throw new ConfigurationError('COOKIE_SAME_SITE', 'cannot be "none" outside production because the cookie must be Secure.');
+  }
+
   const mongodbUri = requireString('MONGODB_URI', { maxLength: 2048 });
   if (!URI_RE.test(mongodbUri)) {
     throw new ConfigurationError('MONGODB_URI', 'must start with mongodb:// or mongodb+srv://.');
@@ -176,6 +206,23 @@ function buildConfig() {
   if (!/^[A-Za-z0-9_-]+$/.test(mongodbDbName)) {
     throw new ConfigurationError('MONGODB_DB_NAME', 'must contain only letters, numbers, underscores or dashes.');
   }
+
+  // --- Authentication (spec §40, §81) ----------------------------------
+  const passwordMinLength = integer('PASSWORD_MIN_LENGTH', { fallback: 8, min: 8, max: 128 });
+  const argon2Memory = integer('ARGON2_MEMORY', { fallback: 19456, min: 8192, max: 1048576 });
+  const argon2Iterations = integer('ARGON2_ITERATIONS', { fallback: 2, min: 1, max: 20 });
+  const argon2Parallelism = integer('ARGON2_PARALLELISM', { fallback: 1, min: 1, max: 16 });
+
+  const defaultPhoneCountry = requireString('DEFAULT_PHONE_COUNTRY', { maxLength: 2 }).toUpperCase();
+  if (!/^[A-Z]{2}$/.test(defaultPhoneCountry)) {
+    throw new ConfigurationError('DEFAULT_PHONE_COUNTRY', 'must be a two-letter ISO country code such as IN.');
+  }
+  if (!COUNTRY_DIAL_CODES[defaultPhoneCountry]) {
+    throw new ConfigurationError('DEFAULT_PHONE_COUNTRY', 'is not a supported country code.');
+  }
+
+  const authRateLimitWindow = integer('AUTH_RATE_LIMIT_WINDOW', { fallback: 900, min: 1, max: 86400 });
+  const authRateLimitMax = integer('AUTH_RATE_LIMIT_MAX', { fallback: 10, min: 1, max: 100000 });
 
   const dbMaxPoolSize = integer('DB_MAX_POOL_SIZE', { fallback: 10, min: 1, max: 500 });
   const dbServerSelectionTimeoutMs = integer('DB_SERVER_SELECTION_TIMEOUT_MS', { fallback: 5000, min: 100, max: 60000 });
@@ -198,10 +245,36 @@ function buildConfig() {
     logLevel,
     jwt: Object.freeze({
       secret: jwtSecret,
+      issuer: jwtIssuer,
+      audience: jwtAudience,
       accessTtl: jwtAccessTtl,
       accessTtlMs: jwtAccessTtlMs,
       refreshTtl: jwtRefreshTtl,
       refreshTtlMs: jwtRefreshTtlMs
+    }),
+    session: Object.freeze({
+      refreshTokenBytes,
+      // The refresh/session lifetime is JWT_REFRESH_TTL — one source of truth
+      // for the session row, the cookie max-age and the rotation window.
+      ttlMs: jwtRefreshTtlMs
+    }),
+    cookie: Object.freeze({
+      domain: cookieDomain || undefined,
+      sameSite: cookieSameSite,
+      // A Secure cookie is mandatory in production (spec §37, §41).
+      secure: isProduction
+    }),
+    auth: Object.freeze({
+      passwordMinLength,
+      // Argon2id cost parameters (spec §40). Raising these does not require a
+      // data migration — passwordService.needsRehash() upgrades on next login.
+      argon2: Object.freeze({
+        memoryCost: argon2Memory,
+        timeCost: argon2Iterations,
+        parallelism: argon2Parallelism
+      }),
+      defaultPhoneCountry,
+      rateLimit: Object.freeze({ windowSeconds: authRateLimitWindow, max: authRateLimitMax })
     }),
     mongodbUri,
     mongodbDbName,

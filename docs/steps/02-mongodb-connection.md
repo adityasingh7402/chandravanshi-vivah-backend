@@ -210,8 +210,11 @@ node -e "const {isValidObjectId}=require('./src/utils/objectId');console.log(isV
 - [x] **G3.1** No log line, health response, or error response contains the connection string, credentials, host
       list, or database name (spec §38, §78, §111). *(`sanitizeDatabaseError` redacts the URI, host list, credentials and database name; scaffolded in `tests/db.test.js`.)*
 - [ ] **G3.2** The application's Atlas user has only the application role; a destructive cluster command fails.
-      *(NOT VERIFIED: development runs against a local `mongod` with no authentication, so there is no Atlas user to
-      test. To be confirmed against the real Atlas cluster at deploy time — see sign-off.)*
+      **FAILED (verified 2026-10-08).** The configured `MONGODB_URI` is an Atlas `mongodb+srv://` connection, and the
+      authenticated account reports
+      `authenticatedUserRoles: [{ "role": "atlasAdmin", "db": "admin" }]` (via `connectionStatus`). That is a
+      **cluster administrator**, not a least-privilege application user (spec §39). The backend is holding a
+      cluster-admin credential, so any server compromise yields full control of the cluster. See *Fixes required*.
 - [ ] **G3.3** The Atlas network allowlist follows the finalized policy (decisions §2): never `0.0.0.0/0` in
       production, dev/CI limited to the developer's current IP plus required egress (with an expiry recorded for any
       temporary developer rule), and the values read from deployment config rather than hardcoded.
@@ -248,10 +251,10 @@ node -e "const {isValidObjectId}=require('./src/utils/objectId');console.log(isV
 |---|---|
 | Gate 1 | ☑ pass ☐ fail |
 | Gate 2 | ☑ pass ☐ fail |
-| Gate 3 | ☑ pass ☐ fail |
+| Gate 3 | ☐ pass ☑ fail |
 | Gate 4 | ☑ pass ☐ fail |
 | Gate 5 | ☑ pass ☐ fail |
-| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
+| **Result** | ☐ PASS ☐ PASS WITH NOTES ☑ FAIL |
 
 ## Acceptance criteria
 
@@ -267,6 +270,6 @@ node -e "const {isValidObjectId}=require('./src/utils/objectId');console.log(isV
 |---|---|
 | Auditor | Buffy (automated audit) |
 | Date | 2026-10-08 |
-| Verdict | PASS WITH NOTES |
-| Evidence | `npm run lint` exit 0; `npm test` 61/61 pass 0 skipped; live boot logs `database connected` then `server listening` (connect before listen); `/api/v1/health` returns `database:{state:"connected",connected:true}`; `node scripts/verify-indexes.js` exit 0; unreachable-cluster boot exit 1 with `connect ECONNREFUSED [redacted-host]`; `isValidObjectId('{$ne:null}')===false`; step 01 regression 11/11. |
-| Fixes required | None in code. **Unverified here (environment/deployment, not defects):** G3.2 (Atlas application user least-privilege) and G3.3 (Atlas network allowlist) require a real Atlas cluster — development uses a local unauthenticated `mongod`. G3.5's `git grep` is unavailable because this directory is not a git repository. Confirm G3.2/G3.3 against Atlas before production. |
+| Verdict | FAIL |
+| Evidence | `npm run lint` exit 0; `npm test` 61/61 pass 0 skipped; live boot logs `database connected` then `server listening` (connect before listen); `/api/v1/health` returns `database:{state:"connected",connected:true}`; `node scripts/verify-indexes.js` exit 0; unreachable-cluster boot exit 1 with `connect ECONNREFUSED [redacted-host]`; `isValidObjectId('{$ne:null}')===false`; step 01 regression 11/11. **Re-verification 2026-10-08 (from step 03):** the cluster is Atlas (not a local mongod), and `connectionStatus` shows `atlasAdmin` — G3.2 FAILS. |
+| Fixes required | **G3.2 (blocking security item).** Replace the application credential with a dedicated Atlas database user that has only the built-in **`readWrite`** role scoped to the application database; keep cluster-admin credentials out of the application environment entirely (spec §39). An earlier revision of this sign-off wrongly recorded G3.2 as "not verifiable" on the assumption that development used a local unauthenticated `mongod`; the configured URI is in fact Atlas. Also still unverified: G3.3 (Atlas network allowlist — an Atlas-console/deployment check) and G3.5's `git grep` (this directory is not a git repository). |

@@ -13,7 +13,13 @@ const { version } = require('../../package.json');
  * Mounted at the configured API prefix. Health is the only route in step 01;
  * later steps add their routers here and nothing else touches app.js.
  */
+const authRoutes = require('./auth.routes');
+const sessionRoutes = require('./session.routes');
+
 const router = express.Router();
+
+router.use('/auth', authRoutes);
+router.use('/auth', sessionRoutes);
 
 router.get('/health', (req, res) =>
   ok(res, {

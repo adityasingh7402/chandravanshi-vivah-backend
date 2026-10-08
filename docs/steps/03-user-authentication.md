@@ -1,9 +1,9 @@
 ---
 step: 03
 title: User & Authentication
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [02]
 unblocks: [04]
 spec_refs: ["§3.4", "§5", "§6", "§30", "§34", "§36", "§40", "§79", "§81", "§84", "§110", "§117", "§121"]
@@ -115,29 +115,29 @@ equivalent is applied so it is not loaded by default.
 
 ## Build tasks
 
-- [ ] 1. Install the password-hashing library (Argon2id preferred, bcrypt acceptable) and record the version and
-      chosen cost parameters in the README.
-- [ ] 2. Write `models/User.js`: schema per spec §5, apply the base plugin, mark `passwordHash` internal and
+- [x] 1. Install the password-hashing library (Argon2id preferred, bcrypt acceptable) and record the version and
+      chosen cost parameters in the README. *(`@node-rs/argon2` 2.2.2, Argon2id, prebuilt binary — no native build.)*
+- [x] 2. Write `models/User.js`: schema per spec §5, apply the base plugin, mark `passwordHash` internal and
       non-selected by default, and declare the partial unique indexes.
-- [ ] 3. Write `utils/identifier.js`: trim + lowercase email; normalise phone to E.164 using a country default from
+- [x] 3. Write `utils/identifier.js`: trim + lowercase email; normalise phone to E.164 using a country default from
       config; return a normalised value plus the resolved type; throw a typed error on unusable input.
-- [ ] 4. Write `services/passwordService.js` with `hash()`, `verify()` (constant-time), and `needsRehash()` so the
+- [x] 4. Write `services/passwordService.js` with `hash()`, `verify()` (constant-time), and `needsRehash()` so the
       cost can be raised later without a data migration.
-- [ ] 5. Write `services/authService.js` `register()`: normalise identifier → check existence → hash password →
+- [x] 5. Write `services/authService.js` `register()`: normalise identifier → check existence → hash password →
       create the user with defaults → return a sanitised user object. Handle duplicate-key errors as a 409 with the
       message from spec §77's example ("A profile with this email already exists.").
-- [ ] 6. Write `authService.verifyCredentials()`: find by normalised identifier, compare with the hash, and return a
+- [x] 6. Write `authService.verifyCredentials()`: find by normalised identifier, compare with the hash, and return a
       single generic "Invalid credentials" error for both unknown identifier and wrong password (no account
       enumeration on the login path). Update `lastLoginAt` on success.
-- [ ] 7. Write `authService.changePassword()`: require the current password to verify, store the new hash, and record
+- [x] 7. Write `authService.changePassword()`: require the current password to verify, store the new hash, and record
       an audit entry. Note in a comment that step 04 revokes other sessions here (spec §40).
-- [ ] 8. Write `validators/auth.validators.js`: register (identifierType enum, identifier, password rules),
+- [x] 8. Write `validators/auth.validators.js`: register (identifierType enum, identifier, password rules),
       login, change-password (current + new, new must differ). Reject unknown fields.
-- [ ] 9. Write `middleware/rateLimit.js` instances for register and login with tighter limits than the global one
+- [x] 9. Write `middleware/rateLimit.js` instances for register and login with tighter limits than the global one
       (spec §36) and apply them to the routes.
-- [ ] 10. Write `controllers/auth.controller.js` and `routes/auth.routes.js`. Controllers orchestrate; services hold
+- [x] 10. Write `controllers/auth.controller.js` and `routes/auth.routes.js`. Controllers orchestrate; services hold
       the logic (spec §94, §95).
-- [ ] 11. Mount the auth router under `/api/v1`.
+- [x] 11. Mount the auth router under `/api/v1`.
 
 ## Business rules & security
 
@@ -207,77 +207,90 @@ for i in $(seq 1 30); do curl -sS -o /dev/null -w '%{http_code} ' -X POST \
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; `auth.routes.js` is mounted under `/api/v1`.
-- [ ] **G1.2** Server boots with the new models loaded and no schema warnings.
-- [ ] **G1.3** Steps 01 and 02 verification commands still pass (health, 404, 413, boot, index script).
+- [x] **G1.1** Every deliverable exists; `auth.routes.js` is mounted under `/api/v1`.
+- [x] **G1.2** Server boots with the new models loaded and no schema warnings.
+- [x] **G1.3** Steps 01 and 02 verification commands still pass (health, 404, 413, boot, index script).
+      *(step 01 11/11; `verify-indexes.js` exit 0 with `users.email_1`/`users.phone_1` present. NOTE: step 02's own
+      gate G3.2 was found to FAIL during this step — see the inherited blocker in the sign-off.)*
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Registration with email returns 201 and the document is persisted with the expected defaults.
-- [ ] **G2.2** Registration with phone normalises to E.164 and persists the normalised form.
-- [ ] **G2.3** Duplicate email and duplicate phone each return 409 with a clean message.
-- [ ] **G2.4** Case/whitespace variants of the same email are treated as one account, not two.
-- [ ] **G2.5** Requests with neither identifier, both identifiers when only one is expected, a malformed email, a
+- [x] **G2.1** Registration with email returns 201 and the document is persisted with the expected defaults.
+- [x] **G2.2** Registration with phone normalises to E.164 and persists the normalised form.
+- [x] **G2.3** Duplicate email and duplicate phone each return 409 with a clean message.
+- [x] **G2.4** Case/whitespace variants of the same email are treated as one account, not two.
+- [x] **G2.5** Requests with neither identifier, both identifiers when only one is expected, a malformed email, a
       malformed phone, or a too-short password each return 400 with a field-level message.
-- [ ] **G2.6** Login with a correct password succeeds and updates `lastLoginAt`; wrong password and unknown
+- [x] **G2.6** Login with a correct password succeeds and updates `lastLoginAt`; wrong password and unknown
       identifier return the **same** 401 message.
-- [ ] **G2.7** Change-password fails with a wrong current password and succeeds with the correct one; the new
-      password verifies afterwards and the old one no longer does.
-- [ ] **G2.8** Rate limits trigger 429 within the configured window on both register and login.
+- [x] **G2.7** Change-password fails with a wrong current password and succeeds with the correct one; the new
+      password verifies afterwards and the old one no longer does. *(service level, against the database. The HTTP
+      route requires the step-04 session middleware and returns 401 without it.)*
+- [x] **G2.8** Rate limits trigger 429 within the configured window on both register and login.
+      *(`tests/authRateLimit.test.js`: 401,401,401 then 429,429,429 for login; 400,400,400 then 429,429,429 for
+      register.)*
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** No response to register, login, or change-password contains `passwordHash` or `password`.
-- [ ] **G3.2** A `role: "admin"` supplied in the request body does not produce an admin account.
-- [ ] **G3.3** Unknown fields are rejected rather than ignored (spec §34).
-- [ ] **G3.4** No log line contains a submitted password or a stored hash (spec §78).
-- [ ] **G3.5** Login errors do not distinguish "no such account" from "wrong password" (spec §36, §40).
-- [ ] **G3.6** There is no self-service password-reset route anywhere in the router (spec §6).
-- [ ] **G3.7** Passwords are stored only as a strong one-way hash; direct inspection confirms no plaintext column
-      or field.
-- [ ] **G3.8** An ObjectId-shaped or object-shaped identifier is rejected before any query runs (spec §35).
+- [x] **G3.1** No response to register, login, or change-password contains `passwordHash` or `password`.
+- [x] **G3.2** A `role: "admin"` supplied in the request body does not produce an admin account. *(400; no admin
+      document created.)*
+- [x] **G3.3** Unknown fields are rejected rather than ignored (spec §34).
+- [x] **G3.4** No log line contains a submitted password or a stored hash (spec §78). *(log scan for the submitted
+      value and for `$argon2` returns 0 matches.)*
+- [x] **G3.5** Login errors do not distinguish "no such account" from "wrong password" (spec §36, §40).
+- [x] **G3.6** There is no self-service password-reset route anywhere in the router (spec §6). *(/forgot-password and
+      /reset-password both 404.)*
+- [x] **G3.7** Passwords are stored only as a strong one-way hash; direct inspection confirms no plaintext column
+      or field. *(Argon2id; no `password` field on the document.)*
+- [x] **G3.8** An ObjectId-shaped or object-shaped identifier is rejected before any query runs (spec §35).
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** Login and register lookups use the unique indexes; `explain()` on the identifier lookup shows `IXSCAN`.
-- [ ] **G4.2** `passwordHash` is not loaded on paths that never verify it.
-- [ ] **G4.3** There is no unbounded `find()` anywhere in the auth service.
+- [x] **G4.1** Login and register lookups use the unique indexes; `explain()` on the identifier lookup shows `IXSCAN`.
+      *(This gate caught a real defect: the email/phone indexes are PARTIAL, and MongoDB only uses a partial index when
+      the query carries its filter predicate — a plain `{ email: value }` lookup planned as a `COLLSCAN`. The lookup
+      now issues `{ $and: [{ email: value }, { email: { $type: "string" } }] }`, which the planner serves with an
+      `IXSCAN` on `email_1`.)*
+- [x] **G4.2** `passwordHash` is not loaded on paths that never verify it. *(`select: false`; asserted.)*
+- [x] **G4.3** There is no unbounded `find()` anywhere in the auth service. *(only `findOne`/`findById`; asserted
+      against the source.)*
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §5 — schema fields, enums, and defaults match exactly.
-- [ ] **G5.2** §6 / §84 — the MVP authentication limitation is honoured: no OTP, no verification, no untrusted reset.
-- [ ] **G5.3** §36 — register, login, and change-password are rate limited.
-- [ ] **G5.4** §40 — hashing, no plaintext, no hash leakage, current-password requirement.
-- [ ] **G5.5** §94 / §95 — controller/service/model separation is respected.
-- [ ] **G5.6** §117 — the register request shape matches the documented example.
-- [ ] **G5.7** §121 — the authentication test list is covered by the functional checks above.
+- [x] **G5.1** §5 — schema fields, enums, and defaults match exactly.
+- [x] **G5.2** §6 / §84 — the MVP authentication limitation is honoured: no OTP, no verification, no untrusted reset.
+- [x] **G5.3** §36 — register, login, and change-password are rate limited.
+- [x] **G5.4** §40 — hashing, no plaintext, no hash leakage, current-password requirement.
+- [x] **G5.5** §94 / §95 — controller/service/model separation is respected.
+- [x] **G5.6** §117 — the register request shape matches the documented example.
+- [x] **G5.7** §121 — the authentication test list is covered by the functional checks above.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] A user can register with email or phone and is created with `role: "user"`, `status: "active"`.
-- [ ] Identifier normalisation makes duplicate detection reliable.
-- [ ] Credentials are verified without enabling account enumeration.
-- [ ] No plaintext password or hash is ever persisted in a response or log.
-- [ ] Rate limiting is demonstrably active on both register and login.
+- [x] A user can register with email or phone and is created with `role: "user"`, `status: "active"`.
+- [x] Identifier normalisation makes duplicate detection reliable.
+- [x] Credentials are verified without enabling account enumeration.
+- [x] No plaintext password or hash is ever persisted in a response or log.
+- [x] Rate limiting is demonstrably active on both register and login.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated audit) |
+| Date | 2026-10-08 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` 94/94 pass 0 skipped; `node verify-step03.mjs` 12/12 live checks; step 01 regression 11/11; `node scripts/verify-indexes.js` exit 0 with `users.email_1`/`users.phone_1` present; log scan for the submitted password and for `$argon2` returns 0 matches; `explain()` on the identifier lookup shows `IXSCAN` on `email_1`. |
+| Fixes required | None in step 03 code. **Two notes:** (1) **Inherited blocker** — step 02 gate **G3.2 FAILS**: the application connects to Atlas as an `atlasAdmin` user, not a least-privilege application user (spec §39). This step's own gates pass, but the credential must be replaced before this feature is production-safe, because a cluster-admin credential is held by the API process. (2) The `change-password` HTTP route needs step 04's session middleware; until then it correctly returns 401, and the password-rotation logic is proven at the service level. |

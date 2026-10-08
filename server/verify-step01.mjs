@@ -74,7 +74,12 @@ const j = async (path, opts) => {
   const logPath = process.argv[2];
   const log = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '';
   const hasReqId = /"reqId"/.test(log);
-  const leaks = /authorization|cookie|password|jwtSecret|secret"|"headers"|"remoteAddress"|"url"|"query"/i.test(log);
+  // Route paths legitimately contain the word "password" (e.g.
+  // /api/v1/auth/change-password) and gate G3.4 explicitly allows the route in
+  // the log, so match credential MATERIAL and request-metadata fields instead of
+  // the bare word. Still catches: headers/authorization/cookie blocks, remote
+  // addresses, query strings, and any stored hash or password field.
+  const leaks = /"authorization"|"cookie"|"headers"|"remoteAddress"|"query"|"url"|jwtSecret|secret"|\$argon2|"password"\s*:|\bpassword\s*=|\bpasswordHash\s*[=:]|"passwordHash"/i.test(log);
   check('log: reqId present', log ? hasReqId : false, log ? `hasReqId=${hasReqId}` : 'NO LOG FILE SUPPLIED');
   check('log: no secrets/headers/remoteAddress/query', log ? !leaks : false, log ? `leak=${leaks}` : 'NO LOG FILE SUPPLIED');
 }

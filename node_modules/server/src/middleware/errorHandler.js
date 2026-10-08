@@ -127,7 +127,13 @@ function errorHandler(err, req, res, next) {
 
   logger[logLevelFor(status)](payload, body.message);
 
-  return fail(res, status, body.message, body.details, { stack: body.stack });
+  // `code` is the machine-readable category from spec §77, so a client can
+  // distinguish e.g. an expired token from an invalid one without matching on
+  // the human-readable message.
+  // `code` is a sibling of `body` in the resolveErrorResponse result — it must
+  // be passed explicitly so the failure envelope carries the machine-readable
+  // category (spec §77).
+  return fail(res, status, body.message, body.details, { stack: body.stack, code });
 }
 
 module.exports = { errorHandler, resolveErrorResponse, resolveStatus };

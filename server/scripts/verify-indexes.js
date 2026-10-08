@@ -21,8 +21,14 @@
 
 const mongoose = require('mongoose');
 const { connect, disconnect } = require('../src/config/db');
-const { ALL_COLLECTIONS } = require('../src/config/collections');
+const { COLLECTIONS, ALL_COLLECTIONS } = require('../src/config/collections');
 const { logger } = require('../src/middleware/requestLogger');
+
+// Requiring the models lets mongoose auto-build their indexes in development
+// (autoIndex), keeping this script's expectations in sync with the schemas.
+// Each later step adds its model import here.
+require('../src/models/User');
+require('../src/models/Session');
 
 /** MongoDB error code for a collection that does not exist yet. */
 const NAMESPACE_NOT_FOUND = 26;
@@ -33,11 +39,19 @@ const NAMESPACE_NOT_FOUND = 26;
  * index, or the script exits non-zero.
  */
 const EXPECTED_INDEXES = Object.freeze({
-  // Step 03 adds:
-  //   users: [
-  //     { name: 'email_1', key: { email: 1 } },   // partial unique (§5)
-  //     { name: 'phone_1', key: { phone: 1 } }
-  //   ]
+  // Step 03 — nullable unique identifiers (spec §5). Both are partial unique
+  // indexes on `$type: "string"`, so many users may have no email/phone.
+  [COLLECTIONS.USERS]: [
+    { name: 'email_1', key: { email: 1 } },
+    { name: 'phone_1', key: { phone: 1 } }
+  ],
+  // Step 04 — session lookups and expiry (spec §7, §105). The expiresAt index is
+  // a TTL index, so expired sessions disappear without a collection sweep.
+  [COLLECTIONS.SESSIONS]: [
+    { name: 'userId_1', key: { userId: 1 } },
+    { name: 'refreshTokenHash_1', key: { refreshTokenHash: 1 } },
+    { name: 'expiresAt_1', key: { expiresAt: 1 } }
+  ]
   // Step 09 adds the discover/search compound indexes (§49, §105).
 });
 
