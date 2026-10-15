@@ -38,10 +38,15 @@ const FINAL_CURRENT = [
   'subscriptions',
   'audit_logs',
   'community_configs',
+  // `communities`, `clans` and `aaspads` extend the §127 list: the
+  // community-format source (step 05) defines clan and aaspad as their own
+  // categories, never merged into gotra.
   'communities',
   'sub_communities',
   'gotras',
   'surnames',
+  'clans',
+  'aaspads',
   'occupations',
   'industries',
   'degrees',
@@ -95,6 +100,8 @@ test('the naming helper produces plural snake_case', () => {
     SubCommunity: 'sub_communities',
     Gotra: 'gotras',
     Surname: 'surnames',
+    Clan: 'clans',
+    Aaspad: 'aaspads',
     Occupation: 'occupations',
     Industry: 'industries',
     Degree: 'degrees',

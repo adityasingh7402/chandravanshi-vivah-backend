@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * Authentication controller (spec §7, §33, §94, §95).
@@ -8,19 +8,24 @@
  * a rejected promise from these async handlers to the error handler.
  */
 
-const authService = require('../services/authService');
-const sessionService = require('../services/sessionService');
-const tokenService = require('../services/tokenService');
-const { ok } = require('../utils/apiResponse');
-const { setRefreshCookie } = require('../utils/cookies');
-const { HTTP_STATUS } = require('../config/constants');
-const { DEVICE_TYPES } = require('../constants/auth');
-const { deviceNameFromRequest } = require('./session.controller');
+const authService = require("../services/authService");
+const sessionService = require("../services/sessionService");
+const tokenService = require("../services/tokenService");
+const { ok } = require("../utils/apiResponse");
+const { setRefreshCookie } = require("../utils/cookies");
+const { HTTP_STATUS } = require("../config/constants");
+const { DEVICE_TYPES } = require("../constants/auth");
+const { deviceNameFromRequest } = require("./session.controller");
 
 /** POST /api/v1/auth/register */
 async function register(req, res) {
   const user = await authService.register(req.body);
-  return ok(res, { user }, 'Account created successfully.', HTTP_STATUS.CREATED);
+  return ok(
+    res,
+    { user },
+    "Account created successfully.",
+    HTTP_STATUS.CREATED,
+  );
 }
 
 /**
@@ -39,17 +44,21 @@ async function login(req, res) {
     userId: user.id,
     role: user.role,
     deviceType,
-    deviceName: deviceNameFromRequest(req)
+    deviceName: deviceNameFromRequest(req),
   });
 
-  const payload = { user, accessToken, expiresIn: tokenService.accessTokenTtlSeconds() };
+  const payload = {
+    user,
+    accessToken,
+    expiresIn: tokenService.accessTokenTtlSeconds(),
+  };
 
   if (deviceType === DEVICE_TYPES.WEB) {
     setRefreshCookie(res, refreshToken);
-    return ok(res, payload, 'Login successful.');
+    return ok(res, payload, "Login successful.");
   }
 
-  return ok(res, { ...payload, refreshToken }, 'Login successful.');
+  return ok(res, { ...payload, refreshToken }, "Login successful.");
 }
 
 /**
@@ -64,10 +73,19 @@ async function changePassword(req, res) {
     userId: req.auth.userId,
     currentSessionId: req.auth.sessionId,
     currentPassword: req.body.currentPassword,
-    newPassword: req.body.newPassword
+    newPassword: req.body.newPassword,
   });
 
-  return ok(res, { user }, 'Password changed successfully.');
+  return ok(res, { user }, "Password changed successfully.");
 }
 
-module.exports = { register, login, changePassword };
+/** PATCH /api/v1/auth/onboarding-step */
+async function updateOnboardingStep(req, res) {
+  const user = await authService.updateOnboardingStep(
+    req.auth.userId,
+    req.body.step,
+  );
+  return ok(res, { user }, "Onboarding progress saved.");
+}
+
+module.exports = { register, login, changePassword, updateOnboardingStep };

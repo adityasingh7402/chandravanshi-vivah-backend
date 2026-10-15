@@ -44,10 +44,15 @@ const COLLECTIONS = Object.freeze({
   COMMUNITY_CONFIGS: 'community_configs',
 
   // Master data — community
+  // `communities`, `clans` and `aaspads` extend the §127 canonical list: the
+  // community-format source defines clan and aaspad as their own categories,
+  // never merged into gotra (step 05, community format reference).
   COMMUNITIES: 'communities',
   SUB_COMMUNITIES: 'sub_communities',
   GOTRAS: 'gotras',
   SURNAMES: 'surnames',
+  CLANS: 'clans',
+  AASPADS: 'aaspads',
 
   // Master data — education & career
   OCCUPATIONS: 'occupations',

@@ -22,6 +22,11 @@ const { createRateLimiter } = require('./middleware/rateLimit');
 const notFound = require('./middleware/notFound');
 const { errorHandler } = require('./middleware/errorHandler');
 const apiRoutes = require('./routes');
+// Step 13: subscribing on load turns the domain events steps 10–12 already
+// emit into notifications in every process that boots the app — the server
+// itself and every HTTP test — with no extra wiring to forget. The subscribe()
+// call is idempotent (decisions §16: a notification is a detached side effect).
+require('./services/notificationEvents').subscribe();
 
 const allowedOrigins = new Set(config.corsOrigins);
 

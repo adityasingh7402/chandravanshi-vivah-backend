@@ -35,7 +35,9 @@ const ERROR_CODES = Object.freeze({
   RATE_LIMITED: 'RATE_LIMITED',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   MALFORMED_JSON: 'MALFORMED_JSON',
-  INTERNAL_ERROR: 'INTERNAL_ERROR'
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  /** A dependency the request needs is not configured or is temporarily down. */
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE'
 });
 
 /** Pagination bounds (spec §80). */
@@ -55,7 +57,8 @@ const MESSAGES = Object.freeze({
   MALFORMED_JSON: 'Request body is not valid JSON.',
   PAYLOAD_TOO_LARGE: 'Request payload is too large.',
   RATE_LIMITED: 'Too many requests. Please try again later.',
-  INVALID_INPUT: 'Invalid request.'
+  INVALID_INPUT: 'Invalid request.',
+  SERVICE_UNAVAILABLE: 'Service temporarily unavailable.'
 });
 
 module.exports = {

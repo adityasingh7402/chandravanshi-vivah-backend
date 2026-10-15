@@ -9,13 +9,16 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "lint": "eslint .",
-    "test": "node --test"
+    "test": "node --test",
+    "verify": "node scripts/verify-all.mjs",
+    "check:db-privileges": "node scripts/check-db-privileges.js"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
+    "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.6",

@@ -17,6 +17,13 @@ const mongoose = require('mongoose');
 
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'error';
+// This file's scratch collections must never land in the development database:
+// the free Atlas tier caps the whole cluster at 500 collections, and leftover
+// `scratch_*` collections from earlier runs had accumulated there until new
+// collections could no longer be created. A dedicated database keeps the
+// suite's artifacts together and out of real data, exactly like every other
+// DB-backed test file.
+process.env.MONGODB_DB_NAME = 'chandravanshi_vivah_test_infra';
 
 const config = require('../src/config/env');
 const db = require('../src/config/db');

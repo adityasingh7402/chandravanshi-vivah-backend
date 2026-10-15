@@ -1,9 +1,9 @@
 ---
 step: 07
 title: Partner Preferences
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [06]
 unblocks: [09]
 spec_refs: ["§16", "§34", "§35", "§44", "§54", "§57", "§72", "§81", "§97", "§105"]
@@ -142,22 +142,22 @@ export const RELOCATION_PREFERENCE = ["yes", "no", "maybe"];
 
 ## Build tasks
 
-- [ ] 1. Write `models/PartnerPreference.js` with the schema, base plugin, and unique `userId` index.
-- [ ] 2. Write `constants/preference.js`: enum mirrors from the fields dictionary **including the three finalized sets
+- [x] 1. Write `models/PartnerPreference.js` with the schema, base plugin, and unique `userId` index.
+- [x] 2. Write `constants/preference.js`: enum mirrors from the fields dictionary **including the three finalized sets
       above** (decisions §4), configured default age/height ranges, and array caps. Do not leave a placeholder for a
       set that is now FINAL.
-- [ ] 3. Write `validators/preference.validators.js`: range sanity (`min <= max`), integer coercion, enum membership,
+- [x] 3. Write `validators/preference.validators.js`: range sanity (`min <= max`), integer coercion, enum membership,
       ObjectId validity, array caps, and unknown-field rejection.
-- [ ] 4. Write `preferenceService.create()`: derive `userId` from `req.auth`, refuse a duplicate document, allow an
+- [x] 4. Write `preferenceService.create()`: derive `userId` from `req.auth`, refuse a duplicate document, allow an
       empty or partial body.
-- [ ] 5. Write `preferenceService.update()`: merge partial input onto the existing document, then validate the merged
+- [x] 5. Write `preferenceService.update()`: merge partial input onto the existing document, then validate the merged
       result so a partial change cannot leave an invalid range.
-- [ ] 6. Write `preferenceService.effectiveFilters()`: return the filter object step 09 will use, with a documented
+- [x] 6. Write `preferenceService.effectiveFilters()`: return the filter object step 09 will use, with a documented
       convention for absent values (omit the filter) and a derived gender default.
-- [ ] 7. Hook the preference section into `profileCompletion` so saving preferences updates the profile's percentage
+- [x] 7. Hook the preference section into `profileCompletion` so saving preferences updates the profile's percentage
       (spec §57) without a full profile rewrite.
-- [ ] 8. Write the controller and routes; apply `requireAuth` and resolve identity from the session only (spec §72).
-- [ ] 9. Do **not** add an `age` field — store the range and let step 09 convert it to a date-of-birth range
+- [x] 8. Write the controller and routes; apply `requireAuth` and resolve identity from the session only (spec §72).
+- [x] 9. Do **not** add an `age` field — store the range and let step 09 convert it to a date-of-birth range
       (spec §47).
 
 ## Business rules & security
@@ -221,76 +221,109 @@ curl -sS -H "Authorization: Bearer $ACCESS" http://localhost:3000/api/v1/profile
 # Expected: completionPercentage changed after preferences were saved
 ```
 
+## Audit notes
+
+**Defect found while building and guarded before it shipped**
+
+1. **Mongoose's `integer` path option is not enforced.** The model's first draft used `{ type: Number, integer: true }`
+   for the range bounds. Measured against the pinned driver (`mongoose@9.11.1`): the path declares **no validator at
+   all** and a document with `20.5` passes validation, so a fractional `age.min` would have been stored and later
+   compared against whole-number candidate ages. Every range number now carries an explicit `Number.isInteger`
+   validator, which still accepts `null` because "this bound is not set" must stay valid.
+
+**Deliberate implementation decisions** (each one is why a gate reads PASS rather than FAIL):
+
+1. **The preference section is scored from its own document.** `calculateCompletion(profile, signals)` takes the
+   preference document as a signal rather than joining it, so the scorer stays pure and the profile service is never
+   asked to read a second collection. **As of this step** the §57 denominator was 90 (75 profile + 15 preferences) and
+   a full profile with no preferences scored 83. **Step 08 then enabled the `photo` section** (weight 10), so the
+   denominator is now the full 100 and those figures are 75 (neither signal) and 85 (photo, no preferences). Both
+   steps compute the expectation from `COMPLETION_WEIGHTS` rather than writing it as a literal, which is what this
+   decision asked for — the number moves, the arithmetic still proves it.
+2. **A preference write touches one field of the profile, never the document.** `refreshProfileCompletion()` writes
+   `profile.completionPercentage` with a targeted `updateOne`, so saving preferences cannot overwrite, re-validate, or
+   race a concurrent profile edit.
+3. **Community scoping is skipped when no community is chosen.** A sub-community/surname/gotra is only checked against
+   `communityIds` when that context is actually set; with no community the id still identifies exactly one row, so the
+   check would add a requirement the product did not ask for instead of enforcing one it did.
+4. **`childrenPreference` reuses the profile's `wantsChildren` set.** Spec §16 types the field as a bare string and
+   neither document publishes options; inventing a set would reject valid input, so the already-documented profile set
+   is reused. Recorded in the tracker as an **open product question**, not as a closed decision.
+5. **Deleting a dimension is an explicit write.** `{ "cityIds": [] }` and `{ "gender": null }` clear a dimension,
+   while omitting a key leaves it untouched — which is the whole point of a merge (spec §16).
+6. **`clanIds` / `aaspadIds` are deliberately absent.** The fields dictionary defines no *preferred* clan or aaspad
+   filter, so neither is added; if the product asks later they follow the identical scoped-option pattern.
+
 ## Audit checklist
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; routes mounted and protected.
-- [ ] **G1.2** Server boots with the model and unique index in place.
-- [ ] **G1.3** Steps 01–06 verification commands still pass (create/read/update profile, privacy checks).
+- [x] **G1.1** Every deliverable exists; routes mounted and protected.
+- [x] **G1.2** Server boots with the model and unique index in place.
+- [x] **G1.3** Steps 01–06 verification commands still pass (create/read/update profile, privacy checks).
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Preferences can be created with a partial body and read back.
-- [ ] **G2.2** PATCH merges rather than replacing, preserving unspecified fields.
-- [ ] **G2.3** A second document for the same account is refused.
-- [ ] **G2.4** `min > max` for age and height is rejected, including when the inversion is created by merging a
+- [x] **G2.1** Preferences can be created with a partial body and read back.
+- [x] **G2.2** PATCH merges rather than replacing, preserving unspecified fields.
+- [x] **G2.3** A second document for the same account is refused.
+- [x] **G2.4** `min > max` for age and height is rejected, including when the inversion is created by merging a
       partial update onto existing values.
-- [ ] **G2.5** Unknown enum values, invalid ObjectIds, and over-cap arrays are rejected.
-- [ ] **G2.6** `effectiveFilters()` omits absent dimensions and, when `gender` is absent, derives the opposite of the
+- [x] **G2.5** Unknown enum values, invalid ObjectIds, and over-cap arrays are rejected.
+- [x] **G2.6** `effectiveFilters()` omits absent dimensions and, when `gender` is absent, derives the opposite of the
       profile gender as a **default** (the user can still override it) (decisions §5).
-- [ ] **G2.9** `workingPreference`, `horoscopeRequired`, and `relocationPreference` accept only the finalized enum
+- [x] **G2.9** `workingPreference`, `horoscopeRequired`, and `relocationPreference` accept only the finalized enum
       values, and `horoscopeRequired` rejects a boolean (decisions §4).
-- [ ] **G2.7** Saving preferences updates the profile completion percentage.
-- [ ] **G2.8** No `age` field is stored in the document.
+- [x] **G2.7** Saving preferences updates the profile completion percentage.
+- [x] **G2.8** No `age` field is stored in the document.
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** A `userId` supplied in the body does not address another account's preferences.
-- [ ] **G3.2** There is no route that exposes another user's preferences.
-- [ ] **G3.3** Unknown or extra filter keys are rejected at validation.
-- [ ] **G3.4** Malformed ObjectIds and object-shaped values are rejected before any query (spec §35).
-- [ ] **G3.5** A suspended or deleted account cannot read or write preferences.
+- [x] **G3.1** A `userId` supplied in the body does not address another account's preferences.
+- [x] **G3.2** There is no route that exposes another user's preferences.
+- [x] **G3.3** Unknown or extra filter keys are rejected at validation.
+- [x] **G3.4** Malformed ObjectIds and object-shaped values are rejected before any query (spec §35).
+- [x] **G3.5** A suspended or deleted account cannot read or write preferences.
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** The `userId` lookup uses the unique index (`IXSCAN`).
-- [ ] **G4.2** The preference document stays small; array caps and bounded fields are enforced.
-- [ ] **G4.3** `effectiveFilters()` produces a plain allowlisted object with no nested query operators.
+- [x] **G4.1** The `userId` lookup uses the unique index (`IXSCAN`).
+- [x] **G4.2** The preference document stays small; array caps and bounded fields are enforced.
+- [x] **G4.3** `effectiveFilters()` produces a plain allowlisted object with no nested query operators.
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §16 — the schema matches the documented fields; partial preferences are permitted.
-- [ ] **G5.2** §47 — no age field is stored; the range is retained for later conversion.
-- [ ] **G5.3** §57 — preferences contribute to completion as documented.
-- [ ] **G5.4** §72 / §44 — ownership is enforced server-side.
-- [ ] **G5.5** §97 — referenced master IDs are validated.
-- [ ] **G5.6** §105 — the preferences index is present.
+- [x] **G5.1** §16 — the schema matches the documented fields; partial preferences are permitted.
+- [x] **G5.2** §47 — no age field is stored; the range is retained for later conversion.
+- [x] **G5.3** §57 — preferences contribute to completion as documented.
+- [x] **G5.4** §72 / §44 — ownership is enforced server-side.
+- [x] **G5.5** §97 — referenced master IDs are validated.
+- [x] **G5.6** §105 — the preferences index is present.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] A user can save any subset of preferences and return later to complete them.
-- [ ] Invalid ranges and references are refused in every combination, including after a merge.
-- [ ] Step 09 can consume `effectiveFilters()` without re-validating or re-interpreting the data.
-- [ ] Preferences are never visible to any other account.
+- [x] A user can save any subset of preferences and return later to complete them.
+- [x] Invalid ranges and references are refused in every combination, including after a merge.
+- [x] Step 09 can consume `effectiveFilters()` without re-validating or re-interpreting the data.
+- [x] Preferences are never visible to any other account.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated audit) |
+| Date | 2026-10-09 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **199/199** (0 skipped; 26 new in `tests/preference.test.js`); `node verify-step07.mjs` **26/26** live checks covering all eight verification commands plus the unique index, the `IXSCAN` lookup, the §47 no-stored-age rule, the `effectiveFilters()` shape and the `verify-indexes.js` re-run; regressions: step 01 harness 11/11, step 03 12/12, step 04 26/26, step 05 23/23, step 06 33/33; `npm run verify` → **7/7 gates, 131/131 checks**, exit 0. |
+| Fixes required | None outstanding in step 07. The `integer`-option defect above was guarded before it could store bad data. The inherited step 02 **G3.2** blocker (Atlas `atlasAdmin` credential) still applies. |

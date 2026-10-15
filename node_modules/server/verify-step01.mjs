@@ -91,4 +91,7 @@ check('rate limiter 429 covered by unit test (tests/app.test.js)', true, 'see np
 const failed = results.filter(r => !r.pass);
 for (const r of results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name}  (${r.detail})`);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-process.exit(failed.length ? 1 : 0);
+// `process.exit()` can abort before pending stdout writes flush (observed on
+// Windows with a piped stdout: exit 0xC0000409 after a perfect summary).
+// Setting exitCode keeps the same pass/fail status and lets Node exit cleanly.
+process.exitCode = failed.length ? 1 : 0;

@@ -1,0 +1,23 @@
+[
+  { "name": "Computer Science", "parent": ["b-tech", "b-e", "m-tech", "b-sc", "m-sc"] },
+  { "name": "Information Technology", "parent": ["b-tech", "b-e", "m-tech", "bca", "mca"] },
+  { "name": "Mechanical Engineering", "parent": ["b-tech", "b-e", "m-tech"] },
+  { "name": "Civil Engineering", "parent": ["b-tech", "b-e", "m-tech"] },
+  { "name": "Electrical Engineering", "parent": ["b-tech", "b-e", "m-tech"] },
+  { "name": "Electronics and Communication", "parent": ["b-tech", "b-e", "m-tech"] },
+  { "name": "Computer Applications", "parent": ["bca", "mca"] },
+  { "name": "Commerce", "parent": ["b-com", "m-com"] },
+  { "name": "Finance", "parent": ["mba", "b-com"] },
+  { "name": "Marketing", "parent": ["mba", "bba"] },
+  { "name": "Human Resources", "parent": ["mba", "bba"] },
+  { "name": "Business Administration", "parent": ["bba", "mba"] },
+  { "name": "General Medicine", "parent": ["mbbs", "md"] },
+  { "name": "Surgery", "parent": ["mbbs", "md"] },
+  { "name": "Pharmacy", "parent": ["b-pharm"] },
+  { "name": "Law", "parent": ["llb", "llm"] },
+  { "name": "Mathematics", "parent": ["b-sc", "m-sc"] },
+  { "name": "Physics", "parent": ["b-sc", "m-sc"] },
+  { "name": "Chemistry", "parent": ["b-sc", "m-sc"] },
+  { "name": "Biology", "parent": ["b-sc", "m-sc"] },
+  { "name": "Arts", "parent": ["b-a", "m-a"] }
+]

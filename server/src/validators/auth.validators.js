@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * Authentication request validation (spec §34, §81, §117).
@@ -8,22 +8,34 @@
  * the service (spec §31, §44).
  */
 
-const { z } = require('zod');
-const config = require('../config/env');
-const { BadRequestError } = require('../utils/AppError');
-const { IDENTIFIER_TYPE_VALUES, DEVICE_TYPE_VALUES, PASSWORD_MAX_LENGTH } = require('../constants/auth');
+const { z } = require("zod");
+const config = require("../config/env");
+const { BadRequestError } = require("../utils/AppError");
+const {
+  IDENTIFIER_TYPE_VALUES,
+  DEVICE_TYPE_VALUES,
+  PASSWORD_MAX_LENGTH,
+} = require("../constants/auth");
 
-const identifierType = z.enum(IDENTIFIER_TYPE_VALUES, { message: 'Must be either "email" or "phone".' });
+const identifierType = z.enum(IDENTIFIER_TYPE_VALUES, {
+  message: 'Must be either "email" or "phone".',
+});
 
 const identifier = z
-  .string({ message: 'This field is required.' })
-  .min(1, 'This field is required.')
-  .max(254, 'This value is too long.');
+  .string({ message: "This field is required." })
+  .min(1, "This field is required.")
+  .max(254, "This value is too long.");
 
 const password = z
-  .string({ message: 'A password is required.' })
-  .min(config.auth.passwordMinLength, `Password must be at least ${config.auth.passwordMinLength} characters.`)
-  .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`);
+  .string({ message: "A password is required." })
+  .min(
+    config.auth.passwordMinLength,
+    `Password must be at least ${config.auth.passwordMinLength} characters.`,
+  )
+  .max(
+    PASSWORD_MAX_LENGTH,
+    `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+  );
 
 /** Register: identifierType + identifier + password (spec §117). */
 const registerSchema = z
@@ -40,12 +52,19 @@ const loginSchema = z
     identifierType,
     identifier,
     password: z
-      .string({ message: 'A password is required.' })
-      .min(1, 'A password is required.')
-      .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`),
+      .string({ message: "A password is required." })
+      .min(1, "A password is required.")
+      .max(
+        PASSWORD_MAX_LENGTH,
+        `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+      ),
     // Which kind of client is signing in. `web` gets the HttpOnly refresh cookie;
     // a mobile client gets the refresh token in the body for secure storage.
-    deviceType: z.enum(DEVICE_TYPE_VALUES, { message: 'Must be one of: web, android, ios.' }).optional()
+    deviceType: z
+      .enum(DEVICE_TYPE_VALUES, {
+        message: "Must be one of: web, android, ios.",
+      })
+      .optional(),
   })
   .strict();
 
@@ -53,15 +72,18 @@ const loginSchema = z
 const changePasswordSchema = z
   .object({
     currentPassword: z
-      .string({ message: 'Your current password is required.' })
-      .min(1, 'Your current password is required.')
-      .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`),
-    newPassword: password
+      .string({ message: "Your current password is required." })
+      .min(1, "Your current password is required.")
+      .max(
+        PASSWORD_MAX_LENGTH,
+        `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+      ),
+    newPassword: password,
   })
   .strict()
   .refine((value) => value.currentPassword !== value.newPassword, {
-    message: 'The new password must differ from the current password.',
-    path: ['newPassword']
+    message: "The new password must differ from the current password.",
+    path: ["newPassword"],
   });
 
 /**
@@ -70,8 +92,27 @@ const changePasswordSchema = z
  */
 const refreshSchema = z
   .object({
-    refreshToken: z.string().min(1, 'This field must not be empty.').max(512, 'This value is too long.').optional(),
-    deviceType: z.enum(DEVICE_TYPE_VALUES, { message: 'Must be one of: web, android, ios.' }).optional()
+    refreshToken: z
+      .string()
+      .min(1, "This field must not be empty.")
+      .max(512, "This value is too long.")
+      .optional(),
+    deviceType: z
+      .enum(DEVICE_TYPE_VALUES, {
+        message: "Must be one of: web, android, ios.",
+      })
+      .optional(),
+  })
+  .strict();
+
+/** The current zero-based onboarding screen, persisted for resume support. */
+const onboardingStepSchema = z
+  .object({
+    step: z
+      .number({ message: "Onboarding step must be a number." })
+      .int("Onboarding step must be a whole number.")
+      .min(0)
+      .max(100),
   })
   .strict();
 
@@ -92,10 +133,10 @@ function validateBody(schema) {
       // so the envelope stays a predictable object (spec §33).
       const details = {};
       for (const issue of result.error.issues) {
-        const key = issue.path.length ? issue.path.join('.') : '_';
+        const key = issue.path.length ? issue.path.join(".") : "_";
         if (!(key in details)) details[key] = issue.message;
       }
-      return next(new BadRequestError('Invalid request.', { details }));
+      return next(new BadRequestError("Invalid request.", { details }));
     }
 
     req.body = result.data;
@@ -108,5 +149,6 @@ module.exports = {
   loginSchema,
   changePasswordSchema,
   refreshSchema,
-  validateBody
+  onboardingStepSchema,
+  validateBody,
 };

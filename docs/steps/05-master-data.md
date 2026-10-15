@@ -1,9 +1,9 @@
 ---
 step: 05
 title: Master Data
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [04]
 unblocks: [06]
 spec_refs: ["§3.1", "§3.2", "§12", "§13", "§14", "§15", "§32", "§60", "§73", "§74", "§75", "§76", "§97", "§102", "§105"]
@@ -250,43 +250,43 @@ can immediately put it on the profile.
 
 ## Build tasks
 
-- [ ] 1. Write `models/masterData/MasterItem.js` exporting a factory that builds a model per collection from the
+- [x] 1. Write `models/masterData/MasterItem.js` exporting a factory that builds a model per collection from the
       generic schema plus a per-collection extra-field spec, all applying the base plugin.
-- [ ] 2. Write `constants/masterData.js`: the slug → model map, allowed query parameters, default sort, and a
+- [x] 2. Write `constants/masterData.js`: the slug → model map, allowed query parameters, default sort, and a
       numeric cap for `limit`.
-- [ ] 3. Write `services/masterDataService.js`:
+- [x] 3. Write `services/masterDataService.js`:
       `list({ type, query, limit, parentId, activeOnly })` using an allowlisted query object —
       never `Model.find(req.query)` (spec §35) — plus `validateIds(type, ids)` and `resolveNames()`.
-- [ ] 4. Write the validators: type must be a known slug; `query` has a minimum and maximum length; `limit` is a
+- [x] 4. Write the validators: type must be a known slug; `query` has a minimum and maximum length; `limit` is a
       bounded integer; `parentId` is a valid ObjectId.
-- [ ] 5. Write controller and routes. Apply caching headers (`Cache-Control`) suitable for slowly changing public
+- [x] 5. Write controller and routes. Apply caching headers (`Cache-Control`) suitable for slowly changing public
       data, and note that the client cache is the primary layer (spec §60).
-- [ ] 6. Write `models/CommunityConfig.js` per spec §15 and seed the single Chandravanshi record, including
+- [x] 6. Write `models/CommunityConfig.js` per spec §15 and seed the single Chandravanshi record, including
       `settings.requireProfilePhoto` and `rules.sameGotraAllowed`, with a comment that the rule values are product
       decisions to confirm, not assumptions (spec §15).
-- [ ] 7. Create `data/master/*.json` seed payloads. Use the starter lists from the fields dictionary (§4–§10, §15)
+- [x] 7. Create `data/master/*.json` seed payloads. Use the starter lists from the fields dictionary (§4–§10, §15)
       for gotras, surnames, occupations, industries, degrees, specializations, languages, hobbies, and interests,
       and a real location hierarchy for countries/states/districts/cities.
-- [ ] 8. Write `scripts/seed-master-data.js`: upsert by `slug`, never duplicate on re-run; report created vs updated
+- [x] 8. Write `scripts/seed-master-data.js`: upsert by `slug`, never duplicate on re-run; report created vs updated
       counts; support `--type` to seed one collection; exit non-zero on error (spec §102).
-- [ ] 9. Implement `MasterDataRequest` (dedicated `master_data_requests` collection, decisions §3) and its service
+- [x] 9. Implement `MasterDataRequest` (dedicated `master_data_requests` collection, decisions §3) and its service
       functions (`createRequest`, `listPending`, `verify`, `reject`) for the Gotra/Surname flow (spec §14, §75).
       The requester is taken from the session.
-- [ ] 9b. Implement `masterOptionService.findOrCreateUserOption({ type, name, communityId, subCommunityId, clanId }, userId)`:
+- [x] 9b. Implement `masterOptionService.findOrCreateUserOption({ type, name, communityId, subCommunityId, clanId }, userId)`:
       normalise the name to a slug, look it up **within the parent scope**, and either return the existing row (so a
       second user submitting the same name gets the existing option and no duplicate is created) or insert a new row
       with `source: "user"`, `submittedBy: userId`, `verifiedAt: null`, `isActive: true`. Always open the matching
       `master_data_requests` row for admin review, and return the option so the caller can select it immediately.
-- [ ] 10. Implement `validateIds()` so step 06 can reject a profile referencing a missing, wrong-type, or inactive
+- [x] 10. Implement `validateIds()` so step 06 can reject a profile referencing a missing, wrong-type, or inactive
       master record (spec §97).
-- [ ] 11. Run the seeder and confirm re-running it changes nothing but timestamps.
-- [ ] 12. Implement the community-context seed from [`_master-data-community-format.md`](_master-data-community-format.md):
+- [x] 11. Run the seeder and confirm re-running it changes nothing but timestamps.
+- [x] 12. Implement the community-context seed from [`_master-data-community-format.md`](_master-data-community-format.md):
       create the communities, sub-communities, surnames, gotras, clans, and aaspads in the right parent scopes, with
       the documented clan → gotra mappings, and register the Chandravanshi surname spelling variants as `aliases`
       rather than as separate options.
-- [ ] 13. Write `constants/masterCategories.js`: which of the six categories allow user input, and the `.missing`
+- [x] 13. Write `constants/masterCategories.js`: which of the six categories allow user input, and the `.missing`
       path for each. Community itself is **not** user-inputtable — the platform controls it (fields dictionary §4.1).
-- [ ] 14. Make every list/search response include `isUserContributed` and `verifiedAt`, and sort verified values
+- [x] 14. Make every list/search response include `isUserContributed` and `verifiedAt`, and sort verified values
       ahead of user-contributed ones at equal relevance.
 
 ## Business rules & security
@@ -386,94 +386,138 @@ curl -sS 'http://localhost:3000/api/v1/master-data/gotras?query=Kashyap'
 # Expected: the Kahar, Yadav, and Rajput rows are distinct records, not one merged option
 ```
 
+## Audit notes
+
+**Deliberate implementation decisions** (each one is why a gate reads PASS rather than FAIL):
+
+1. **`nameLower` index instead of a case-insensitive regex.** An anchored `/i` regex cannot use an index, so search
+   would be the exact COLLSCAN anti-pattern §82 names. Every row stores a lower-cased mirror of `name` and the query
+   is anchored *and case-sensitive* against it, which the planner serves with an `IXSCAN` on `nameLower_1`.
+2. **Scope-aware uniqueness generalised.** The doc's index table requires "unique within its parent scope"; that is
+   implemented for the community contexts *and* for the other cascades (`states.countryId`, `districts.stateId`,
+   `cities.districtId`, `specializations.degreeId`), so a specialization name may legitimately exist under several
+   degrees for the dependent dropdown (fields dictionary §6.3).
+3. **Clan → gotra is many-to-many, stored as `clans.gotraIds`.** One clan documents several gotras (Chandel →
+   Chandatreya, Sheshdhar, Parashar, Goutam; that is 4 links, plus Bhati/Chudasama/Jadeja/Soam → Atri, Katoch →
+   Kashyap + Shunak, Tomar → Gargya = 7 linked clans). Writing those mappings as extra scoped *gotra rows* would
+   have produced five near-duplicate `Atri` options in one community, so the mapping lives on the clan and the
+   gotra list stays deduplicated. `gotras.clanId` remains available for the single-clan case.
+4. **`clan` and `aaspad` were added to `REQUEST_TYPES`.** Decisions §3 named only gotra/surname/sub_community, but
+   the community-format update makes clan and aaspad user-inputtable; without this a user-submitted clan would have
+   produced no review row at all, contradicting task 9b (“always open the matching review row”).
+5. **The duplicate-guard index on `master_data_requests` is deliberately NOT unique.** Each submission is its own
+   review row, which is exactly what verification command 10 asserts (one option row, two review requests).
+6. **`.missing` answers 400, not 404, for a known collection that does not accept user input** (e.g. `communities`,
+   `occupations`), with the reason in `details.type`; only an unknown slug is a 404. A 404 would hide a real
+   client bug behind a "not found".
+7. **Oversized `limit` is clamped, not rejected** (validation caps at a sanity bound, the service clamps to
+   `MASTER_SEARCH_MAX_LIMIT`), matching verification command 5's stated expectation.
+8. **Reads are public, writes authenticated.** Master data is shared lookup vocabulary, not personal data (§64), and
+   both clients need it before sign-in; the one authenticated write is `.missing`.
+
+**Known limitations / carried notes:**
+
+- **Seeded gotra rows: 183, not the 186 in the appendix inventory table.** The appendix's own per-community lists
+  sum to 183 distinct scoped gotras (3 Kahar + 58 Yadav + 8 Rajput-Chandravanshi + 9 Rajput + 105 Chandravanshi
+  Khati); its summary table counts 11 clan→gotra mapping tuples on top, 8 of which name a gotra that already exists
+  in the same community. The seeded data follows the per-community lists.
+- **The appendix's image-derived corrected caste-name list was not seeded.** Those 160+ names are not mapped to a
+  category in the source, and no gate references them; guessing a collection for them would invent structure.
+- **Clan → gotra approval merges** are not automatic: `masterDataRequestService.verify` promotes a value,
+  `reject` deactivates it. A *merge* (folding two spellings into one row) is available as `mergeAliases()` and is
+  used by the request path, but an admin-facing merge endpoint belongs to step 16.
+- **Inherited blocker:** step 02 **G3.2** still FAILS (Atlas `atlasAdmin` credential instead of a least-privilege
+  `readWrite` user). Unchanged by this step.
+- The repository is not a git checkout, so git-based gate evidence was produced by filesystem inspection instead.
+
 ## Audit checklist
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; all required collections are registered in `constants/masterData.js`.
-- [ ] **G1.2** Server boots; the seeder runs standalone with no app boot required beyond the DB connection.
-- [ ] **G1.3** Steps 01–04 verification commands still pass.
+- [x] **G1.1** Every deliverable exists; all required collections are registered in `constants/masterData.js`.
+- [x] **G1.2** Server boots; the seeder runs standalone with no app boot required beyond the DB connection.
+- [x] **G1.3** Steps 01–04 verification commands still pass.
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Every collection in the canonical list is reachable through `GET /master-data/:type` and returns items.
-- [ ] **G2.2** Search matches expected terms and returns only active items by default.
-- [ ] **G2.3** Cascading filters return only children of the supplied parent.
-- [ ] **G2.4** Each cascade's parent chain is correct (city → district → state → country), verified against a small
+- [x] **G2.1** Every collection in the canonical list is reachable through `GET /master-data/:type` and returns items.
+- [x] **G2.2** Search matches expected terms and returns only active items by default.
+- [x] **G2.3** Cascading filters return only children of the supplied parent.
+- [x] **G2.4** Each cascade's parent chain is correct (city → district → state → country), verified against a small
       sample of real rows.
-- [ ] **G2.5** `activeOnly=false` returns deactivated items for admin/back-office use, while the default excludes them.
-- [ ] **G2.6** `validateIds()` rejects a missing ID, an ID from the wrong collection, and an inactive ID, each with a
+- [x] **G2.5** `activeOnly=false` returns deactivated items for admin/back-office use, while the default excludes them.
+- [x] **G2.6** `validateIds()` rejects a missing ID, an ID from the wrong collection, and an inactive ID, each with a
       distinct message.
-- [ ] **G2.7** Re-running the seeder creates no duplicates and preserves `_id` for existing slugs.
-- [ ] **G2.8** The Chandravanshi `community_configs` record exists and exposes its settings.
-- [ ] **G2.9** `POST /master-data/:type/missing` creates a selectable option for a value that does not exist, and the
+- [x] **G2.7** Re-running the seeder creates no duplicates and preserves `_id` for existing slugs.
+- [x] **G2.8** The Chandravanshi `community_configs` record exists and exposes its settings.
+- [x] **G2.9** `POST /master-data/:type/missing` creates a selectable option for a value that does not exist, and the
       next user's list query returns it without any admin action.
-- [ ] **G2.10** Submitting the same missing name twice returns the same option `_id`; no duplicate row is created.
-- [ ] **G2.11** The seeded community contexts match the appendix: sub-communities under their community, clans in
+- [x] **G2.10** Submitting the same missing name twice returns the same option `_id`; no duplicate row is created.
+- [x] **G2.11** The seeded community contexts match the appendix: sub-communities under their community, clans in
       `clans`, aaspads in `aaspads`, and the documented clan → gotra mappings present.
-- [ ] **G2.12** A name that exists in two contexts returns two scoped options and selecting the wrong scope is
+- [x] **G2.12** A name that exists in two contexts returns two scoped options and selecting the wrong scope is
       rejected by `validateIds()`.
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** An unknown `:type` cannot reach any collection outside the allowlist, including `users` and `sessions`.
-- [ ] **G3.2** Query-shaped values (for example `query[$ne]=`) are rejected or coerced to a string, never passed as an
+- [x] **G3.1** An unknown `:type` cannot reach any collection outside the allowlist, including `users` and `sessions`.
+- [x] **G3.2** Query-shaped values (for example `query[$ne]=`) are rejected or coerced to a string, never passed as an
       object (spec §35).
-- [ ] **G3.3** `limit` cannot exceed the configured maximum; an oversized `limit` is clamped or rejected.
-- [ ] **G3.4** No error from a master-data route reveals a collection name or driver detail.
-- [ ] **G3.5** A user cannot create an **official** record: every user-submitted option has `source: "user"` and
+- [x] **G3.3** `limit` cannot exceed the configured maximum; an oversized `limit` is clamped or rejected.
+- [x] **G3.4** No error from a master-data route reveals a collection name or driver detail.
+- [x] **G3.5** A user cannot create an **official** record: every user-submitted option has `source: "user"` and
       `submittedBy` set from the session, and a request body cannot set `source`, `submittedBy`, `verifiedBy`,
       `verifiedAt`, `status`, `reviewedBy`, or `reviewedAt` (spec §75, decisions §3).
-- [ ] **G3.6** `submittedBy` on every user-contributed row equals the authenticated caller, verified by submitting
+- [x] **G3.6** `submittedBy` on every user-contributed row equals the authenticated caller, verified by submitting
       from two accounts and comparing.
-- [ ] **G3.7** The `.missing` path is rate limited, length capped, restricted to categories that allow user input,
+- [x] **G3.7** The `.missing` path is rate limited, length capped, restricted to categories that allow user input,
       and refuses a `communityName` (the platform-controlled category, fields dictionary §4.1).
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** `explain("executionStats")` on the search query shows `IXSCAN` on the name or slug index, not `COLLSCAN`.
-- [ ] **G4.2** A sub-minimum-length search is refused before querying, and a maximum-length search is still bounded.
-- [ ] **G4.3** Listing response payloads are small (no unnecessary fields), supporting the client-cache strategy.
+- [x] **G4.1** `explain("executionStats")` on the search query shows `IXSCAN` on the name or slug index, not `COLLSCAN`.
+- [x] **G4.2** A sub-minimum-length search is refused before querying, and a maximum-length search is still bounded.
+- [x] **G4.3** Listing response payloads are small (no unnecessary fields), supporting the client-cache strategy.
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §13 — the generic document shape is used consistently; extra fields appear only where justified.
-- [ ] **G5.2** §73 / §74 — search parameters and the deactivate-don't-delete rule are implemented.
-- [ ] **G5.3** §75 / §14 — Gotra/Surname additions go through review, not direct creation.
-- [ ] **G5.4** §76 — the country/state/district/city hierarchy is structured, and no exact address is stored here.
-- [ ] **G5.5** §97 — referenced master IDs are validated before use by other steps.
-- [ ] **G5.6** §102 — seeding is idempotent and slug-stable.
-- [ ] **G5.7** §60 — no server-side cache is introduced; the client caches.
-- [ ] **G5.8** fields dictionary §4.2–§4.4 — the sub-community, surname (including the "can't find it?" path), and
+- [x] **G5.1** §13 — the generic document shape is used consistently; extra fields appear only where justified.
+- [x] **G5.2** §73 / §74 — search parameters and the deactivate-don't-delete rule are implemented.
+- [x] **G5.3** §75 / §14 — Gotra/Surname additions go through review, not direct creation.
+- [x] **G5.4** §76 — the country/state/district/city hierarchy is structured, and no exact address is stored here.
+- [x] **G5.5** §97 — referenced master IDs are validated before use by other steps.
+- [x] **G5.6** §102 — seeding is idempotent and slug-stable.
+- [x] **G5.7** §60 — no server-side cache is introduced; the client caches.
+- [x] **G5.8** fields dictionary §4.2–§4.4 — the sub-community, surname (including the "can't find it?" path), and
       gotra rules are honoured, and standardised gotra values are not forked by spelling variants.
-- [ ] **G5.9** community format — clan and aaspad are their own categories, contexts are not cross-merged, and the
+- [x] **G5.9** community format — clan and aaspad are their own categories, contexts are not cross-merged, and the
       submitted `userId` is retained on every user-contributed value.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] Both clients can populate every selectable field from this one API.
-- [ ] Search is bounded and index-backed.
-- [ ] Seeding is idempotent and reproducible.
-- [ ] Deactivation preserves old references while hiding values from new selections.
-- [ ] Step 06 can validate every ID a profile submits.
+- [x] Both clients can populate every selectable field from this one API.
+- [x] Search is bounded and index-backed.
+- [x] Seeding is idempotent and reproducible.
+- [x] Deactivation preserves old references while hiding values from new selections.
+- [x] Step 06 can validate every ID a profile submits.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated audit) |
+| Date | 2026-10-08 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **146/146** (0 skipped; 27 new in `tests/masterData.test.js`); `node verify-step05.mjs` **23/23** live checks covering all 13 verification commands; regressions: step 01 harness 11/11, step 03 harness 12/12, step 04 harness 26/26, `node scripts/verify-indexes.js` exit 0 with every master collection's indexes plus `master_data_requests` and `community_configs`; seeder run twice → `985 created` then `0 created, 984 updated`; `explain('executionStats')` on the search → `IXSCAN` on `nameLower_1`; 413 community tuples extracted verbatim from the appendix. |
+| Fixes required | None in step 05 code. Notes and deliberate decisions are listed under *Audit notes* below. The inherited step 02 **G3.2** blocker (Atlas `atlasAdmin` credential) still applies. |

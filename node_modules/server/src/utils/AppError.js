@@ -64,6 +64,12 @@ class RateLimitError extends AppError {
   }
 }
 
+class ServiceUnavailableError extends AppError {
+  constructor(message = 'Service temporarily unavailable.', options = {}) {
+    super(message, { statusCode: HTTP_STATUS.SERVICE_UNAVAILABLE, code: ERROR_CODES.SERVICE_UNAVAILABLE, ...options });
+  }
+}
+
 class InternalError extends AppError {
   constructor(message = 'Something went wrong. Please try again later.', options = {}) {
     super(message, { statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR, code: ERROR_CODES.INTERNAL_ERROR, isOperational: false, ...options });
@@ -79,5 +85,6 @@ module.exports = {
   ConflictError,
   PayloadTooLargeError,
   RateLimitError,
+  ServiceUnavailableError,
   InternalError
 };

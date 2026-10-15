@@ -22,7 +22,12 @@ function createRateLimiter(options = {}) {
     limit = config.rateLimit.max,
     message = MESSAGES.RATE_LIMITED,
     keyGenerator,
-    skip
+    skip,
+    // Express-rate-limit's own option set. A caller that keys by account and
+    // action type (step 10) deliberately does not key by IP; that makes one of
+    // the library's default validations inapplicable, so it is turned off here
+    // rather than leaving a spurious warning in the boot log.
+    validate
   } = options;
 
   if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
@@ -39,6 +44,7 @@ function createRateLimiter(options = {}) {
     legacyHeaders: false,
     keyGenerator,
     skip,
+    ...(validate === undefined ? {} : { validate }),
     handler: (req, res) => {
       logger.warn({ reqId: req.id, route: routeOf(req), limiter: name }, 'rate limit exceeded');
       return fail(res, HTTP_STATUS.TOO_MANY_REQUESTS, message);

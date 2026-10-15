@@ -27,8 +27,54 @@ const { logger } = require('../src/middleware/requestLogger');
 // Requiring the models lets mongoose auto-build their indexes in development
 // (autoIndex), keeping this script's expectations in sync with the schemas.
 // Each later step adds its model import here.
-require('../src/models/User');
-require('../src/models/Session');
+const User = require('../src/models/User');
+const Session = require('../src/models/Session');
+// Step 05 — assembling the master-data models registers all 18 collections.
+const { MASTER_MODELS } = require('../src/models/masterData/MasterItem');
+const MasterDataRequest = require('../src/models/MasterDataRequest');
+const CommunityConfig = require('../src/models/CommunityConfig');
+// Step 06 — the primary matchmaking document (spec §105).
+const MatrimonialProfile = require('../src/models/MatrimonialProfile');
+// Step 07 — "who am I looking for?", one document per account (spec §16, §105).
+const PartnerPreference = require('../src/models/PartnerPreference');
+const Photo = require('../src/models/Photo');
+const KundliDocument = require('../src/models/KundliDocument');
+// Step 10 — the lightweight interaction log (spec §20, §105).
+const ProfileAction = require('../src/models/ProfileAction');
+// Step 11 — the interest handshake, including the partial unique active-pair
+// index that makes a duplicate active relationship impossible (spec §21, §105;
+// decisions §8).
+const Connection = require('../src/models/Connection');
+// Step 12 — safety: the bilateral block pair and the moderation-report indexes
+// (spec §22, §23, §105).
+const Block = require('../src/models/Block');
+const Report = require('../src/models/Report');
+// Step 13 — the in-app inbox.
+const Notification = require('../src/models/Notification');
+// Step 15 — the entitlement record.
+const Subscription = require('../src/models/Subscription');
+
+/**
+ * Models whose declared indexes this script asserts. Index construction is
+ * triggered explicitly (see `ensureIndexes`) so a collection that has never been
+ * written to — `sessions` on a fresh database — is still checked rather than
+ * silently skipped because the namespace does not exist yet.
+ */
+const REQUIRED_MODELS = Object.freeze([
+  User,
+  Session,
+  MasterDataRequest,
+  CommunityConfig,
+  MatrimonialProfile,
+  PartnerPreference,
+  Photo,
+  KundliDocument,
+  ProfileAction,
+  Connection,
+  Block,
+  Report,
+  ...Object.values(MASTER_MODELS)
+]);
 
 /** MongoDB error code for a collection that does not exist yet. */
 const NAMESPACE_NOT_FOUND = 26;
@@ -38,6 +84,37 @@ const NAMESPACE_NOT_FOUND = 26;
  * `{ name, key }`. A collection listed here MUST exist and MUST have every
  * index, or the script exits non-zero.
  */
+/**
+ * The default MongoDB index name for a key object, e.g. `isActive_1_sortOrder_1`.
+ * Matches the driver's own naming so it can be compared against live indexes.
+ */
+function defaultIndexName(key) {
+  return Object.entries(key)
+    .map(([field, direction]) => `${field}_${direction}`)
+    .join('_');
+}
+
+/**
+ * Derive a step-05 collection's expected indexes from the model itself, so the
+ * expectation can never drift from the schema the app actually builds.
+ */
+function expectationsFromSchema(model) {
+  return model.schema.indexes().map(([key, options]) => ({
+    name: options.name || defaultIndexName(key),
+    key
+  }));
+}
+
+/**
+ * Every step-05 master collection's expected indexes, keyed by collection name.
+ * Excludes the automatic `_id_` index (not part of schema.indexes()).
+ */
+function masterIndexExpectations() {
+  return Object.fromEntries(
+    Object.values(MASTER_MODELS).map((model) => [model.collection.name, expectationsFromSchema(model)])
+  );
+}
+
 const EXPECTED_INDEXES = Object.freeze({
   // Step 03 — nullable unique identifiers (spec §5). Both are partial unique
   // indexes on `$type: "string"`, so many users may have no email/phone.
@@ -51,8 +128,45 @@ const EXPECTED_INDEXES = Object.freeze({
     { name: 'userId_1', key: { userId: 1 } },
     { name: 'refreshTokenHash_1', key: { refreshTokenHash: 1 } },
     { name: 'expiresAt_1', key: { expiresAt: 1 } }
-  ]
-  // Step 09 adds the discover/search compound indexes (§49, §105).
+  ],
+  // Step 05 — every master collection (spec §105, step 05 index table).
+  ...masterIndexExpectations(),
+  // Step 05 — the review queue, requester lookup and duplicate visibility.
+  [COLLECTIONS.MASTER_DATA_REQUESTS]: [
+    { name: 'status_1_createdAt_-1', key: { status: 1, createdAt: -1 } },
+    { name: 'userId_1_createdAt_-1', key: { userId: 1, createdAt: -1 } },
+    { name: 'type_1_requestedName_1_status_1', key: { type: 1, requestedName: 1, status: 1 } }
+  ],
+  // Step 05 — one config per community, looked up by slug (spec §15).
+  [COLLECTIONS.COMMUNITY_CONFIGS]: [{ name: 'slug_1', key: { slug: 1 } }],
+  // Step 06 — profile uniqueness and the Discover filter checklist (spec §105).
+  [COLLECTIONS.MATRIMONIAL_PROFILES]: expectationsFromSchema(MatrimonialProfile),
+  // Step 07 — one preference document per account, enforced by the unique index.
+  [COLLECTIONS.PARTNER_PREFERENCES]: expectationsFromSchema(PartnerPreference),
+  // Step 08 — `photos.userId` from the §105 checklist, plus the primary and
+  // ordering keys, the unique asset reference and the partial unique index that
+  // makes "at most one primary per (user, type)" a database rule.
+  [COLLECTIONS.PHOTOS]: expectationsFromSchema(Photo),
+  // Step 08 — the dedicated Kundli collection (decisions §6).
+  [COLLECTIONS.KUNDLI_DOCUMENTS]: expectationsFromSchema(KundliDocument),
+  // Step 10 — one row per (from, to, type), plus the two listing/filter keys
+  // (spec §20, §105; decisions §15).
+  [COLLECTIONS.PROFILE_ACTIONS]: expectationsFromSchema(ProfileAction),
+  // Step 11 — the sender/receiver listing keys, the partial unique active-pair
+  // index and the expiry sweep key (spec §21, §105; decisions §8).
+  [COLLECTIONS.CONNECTIONS]: expectationsFromSchema(Connection),
+  // Step 12 — the unique block pair plus both directions of the exclusion union
+  // (spec §22, §99, §105).
+  [COLLECTIONS.BLOCKS]: expectationsFromSchema(Block),
+  // Step 12 — the moderation queue, the caller's own history and the admin
+  // ordering (spec §23, §101, §105).
+  [COLLECTIONS.REPORTS]: expectationsFromSchema(Report),
+  // Step 13 — the paginated inbox and the unread filter/count (spec §24, §105).
+  [COLLECTIONS.NOTIFICATIONS]: expectationsFromSchema(Notification),
+  // Step 15 — the active-entitlement lookup, the expiry sweep and the partial
+  // unique "one active row per user" index (spec §26, §105; decisions §11).
+  [COLLECTIONS.SUBSCRIPTIONS]: expectationsFromSchema(Subscription)
+  // Step 09 added the discover/search compound indexes (§49, §105).
 });
 
 /** Parse the optional test override, returning null when it is not set. */
@@ -149,6 +263,25 @@ function printBaseline(entries) {
   }
 }
 
+/**
+ * Create every required model's declared indexes.
+ *
+ * Only touches the collections this script knows about, and never drops an
+ * index — a genuinely missing index still makes the script exit non-zero.
+ */
+async function ensureIndexes(db) {
+  for (const model of REQUIRED_MODELS) {
+    try {
+      await model.createIndexes();
+    } catch (err) {
+      // A failure here surfaces as a missing index below, with the collection
+      // name; log only the error name (never a connection detail).
+      logger.warn({ collection: model.collection.name, errName: err && err.name }, 'verify-indexes: index build failed');
+    }
+  }
+  void db;
+}
+
 function printMissing(missing) {
   console.error('\nMISSING INDEXES:');
   for (const item of missing) {
@@ -179,6 +312,9 @@ async function main() {
 
   try {
     const db = mongoose.connection.db;
+    // Build the declared indexes first, so the assertion below tests reality
+    // rather than whether the collection happened to exist already.
+    await ensureIndexes(db);
     printBaseline(await baseline(db, Object.keys(expectations)));
 
     const { missing } = await verifyIndexes(db, expectations);
@@ -201,4 +337,16 @@ if (require.main === module) {
   });
 }
 
-module.exports = { EXPECTED_INDEXES, verifyIndexes, baseline, listIndexes, keyToString, loadOverride };
+module.exports = {
+  EXPECTED_INDEXES,
+  verifyIndexes,
+  baseline,
+  listIndexes,
+  keyToString,
+  loadOverride,
+  masterIndexExpectations,
+  expectationsFromSchema,
+  defaultIndexName,
+  ensureIndexes,
+  REQUIRED_MODELS
+};

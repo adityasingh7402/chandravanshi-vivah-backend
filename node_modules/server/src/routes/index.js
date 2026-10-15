@@ -15,11 +15,42 @@ const { version } = require('../../package.json');
  */
 const authRoutes = require('./auth.routes');
 const sessionRoutes = require('./session.routes');
+const masterDataRoutes = require('./masterData.routes');
+const profileRoutes = require('./profile.routes');
+const preferenceRoutes = require('./preference.routes');
+const photoRoutes = require('./photo.routes');
+const kundliRoutes = require('./kundli.routes');
+const discoverRoutes = require('./discover.routes');
+const interactionRoutes = require('./interaction.routes');
+const connectionRoutes = require('./connection.routes');
+const blockRoutes = require('./block.routes');
+const reportRoutes = require('./report.routes');
+const notificationRoutes = require('./notification.routes');
+const subscriptionRoutes = require('./subscription.routes');
 
 const router = express.Router();
 
 router.use('/auth', authRoutes);
 router.use('/auth', sessionRoutes);
+router.use('/master-data', masterDataRoutes);
+router.use('/profile', profileRoutes);
+router.use('/preferences', preferenceRoutes);
+router.use('/photos', photoRoutes);
+router.use('/kundli', kundliRoutes);
+// Step 09 — the read path. Mounted at the API root because its paths are
+// top-level (`/discover`, `/search`, `/recommendations`), not a sub-resource.
+router.use(discoverRoutes);
+// Step 10 — lightweight profile actions (view / like / shortlist / pass).
+router.use('/interactions', interactionRoutes);
+// Step 11 — the formal interest handshake (send / accept / reject / withdraw / close).
+router.use('/connections', connectionRoutes);
+// Step 12 — safety: blocking a member and opening a moderation case.
+router.use('/blocks', blockRoutes);
+router.use('/reports', reportRoutes);
+// Step 13 — in-app notifications (inbox, badge count, mark-read).
+router.use('/notifications', notificationRoutes);
+// Step 15 — the entitlement gate (one read; no payment routes exist yet).
+router.use('/subscription', subscriptionRoutes);
 
 router.get('/health', (req, res) =>
   ok(res, {

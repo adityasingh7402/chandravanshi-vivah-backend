@@ -1,9 +1,9 @@
 ---
 step: 13
 title: Notifications
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [12]
 unblocks: [16]
 spec_refs: ["§22", "§24", "§30", "§36", "§44", "§105", "§112"]
@@ -118,24 +118,24 @@ This is the complete mapping for the acceptance/rejection path; there is no dupl
 
 ## Build tasks
 
-- [ ] 1. Write `models/Notification.js` with the schema, base plugin, and the inbox/unread indexes. Keep `data`
+- [x] 1. Write `models/Notification.js` with the schema, base plugin, and the inbox/unread indexes. Keep `data`
       small — it is a payload, not a document copy.
-- [ ] 2. Write `constants/notifications.js`: the type enum, default titles/bodies per type, and pagination defaults.
-- [ ] 3. Write `notificationService.create()`: validate the type against the enum, verify the recipient exists and is
+- [x] 2. Write `constants/notifications.js`: the type enum, default titles/bodies per type, and pagination defaults.
+- [x] 3. Write `notificationService.create()`: validate the type against the enum, verify the recipient exists and is
       not blocked relative to the actor, apply throttling/coalescing for high-frequency types, and insert.
-- [ ] 4. Write `notificationEvents.js`: subscribe to the events emitted in steps 10–12 and map them to notifications.
+- [x] 4. Write `notificationEvents.js`: subscribe to the events emitted in steps 10–12 and map them to notifications.
       Map the `interest_accepted` domain event to **one** `new_match` notification (decisions §9) and `interest_rejected`
       to one `interest_rejected` notification for the sender (decisions §10). Keep the mapping data-driven so step 16 can
       add `verification_completed` and `admin_alert` without editing the core service.
-- [ ] 5. Implement block suppression by consulting `blockService.isBlockedEitherWay()` before insert (spec §22).
-- [ ] 6. Implement throttling/coalescing so repeated profile views by one user do not produce an unbounded inbox
+- [x] 5. Implement block suppression by consulting `blockService.isBlockedEitherWay()` before insert (spec §22).
+- [x] 6. Implement throttling/coalescing so repeated profile views by one user do not produce an unbounded inbox
       (for example, collapse per actor and type within a window, or update the existing row's `createdAt` and reset
       `readAt` for `profile_view`).
-- [ ] 7. Write `list()` with cursor or bounded offset pagination, `unreadCount()`, `markRead()` (owner-only, idempotent),
+- [x] 7. Write `list()` with cursor or bounded offset pagination, `unreadCount()`, `markRead()` (owner-only, idempotent),
       and `markAllRead()` (scoped to the caller, never another user's rows).
-- [ ] 8. Reject a `userId` supplied by the client on every route; the recipient is always `req.auth.userId` (spec §44).
-- [ ] 9. Apply rate limits to the mark-read endpoints so a client cannot hammer them (spec §36).
-- [ ] 10. Write controller, routes, and validators. Ensure the serialiser exposes only `type`, `title`, `body`, a
+- [x] 8. Reject a `userId` supplied by the client on every route; the recipient is always `req.auth.userId` (spec §44).
+- [x] 9. Apply rate limits to the mark-read endpoints so a client cannot hammer them (spec §36).
+- [x] 10. Write controller, routes, and validators. Ensure the serialiser exposes only `type`, `title`, `body`, a
       minimal `data`, `readAt`, and `createdAt` — no internal ids of other collections beyond what the client needs
       (spec §30, §112).
 
@@ -210,74 +210,74 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X PATCH \
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; notification routes mounted and protected.
-- [ ] **G1.2** Server boots with the model and indexes in place.
-- [ ] **G1.3** Steps 01–12 verification commands still pass, including block effects.
+- [x] **G1.1** Every deliverable exists; notification routes mounted and protected.
+- [x] **G1.2** Server boots with the model and indexes in place.
+- [x] **G1.3** Steps 01–12 verification commands still pass, including block effects.
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Each documented notification type can be produced by its triggering event.
-- [ ] **G2.2** The inbox lists a recipient's notifications in reverse chronological order, paginated.
-- [ ] **G2.3** `unreadOnly` filters correctly and the unread count matches.
-- [ ] **G2.4** Mark-one and mark-all behave correctly; marking is idempotent.
-- [ ] **G2.5** Blocked pairs produce no notifications in either direction.
-- [ ] **G2.6** Repeated profile views/shortlists do not produce an unbounded number of rows (throttle/coalesce observed).
-- [ ] **G2.7** Accepting produces exactly **one** `new_match` notification for the sender and rejecting produces
+- [x] **G2.1** Each documented notification type can be produced by its triggering event.
+- [x] **G2.2** The inbox lists a recipient's notifications in reverse chronological order, paginated.
+- [x] **G2.3** `unreadOnly` filters correctly and the unread count matches.
+- [x] **G2.4** Mark-one and mark-all behave correctly; marking is idempotent.
+- [x] **G2.5** Blocked pairs produce no notifications in either direction.
+- [x] **G2.6** Repeated profile views/shortlists do not produce an unbounded number of rows (throttle/coalesce observed).
+- [x] **G2.7** Accepting produces exactly **one** `new_match` notification for the sender and rejecting produces
       exactly **one** `interest_rejected` notification for the sender (decisions §9, §10). No second row is created for
       one acceptance, verified by counting rows.
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** No account can read or modify another account's notifications (404 on cross-access).
-- [ ] **G3.2** A client-supplied `userId` cannot redirect a notification or its read state.
-- [ ] **G3.3** The serialiser exposes no reporter identity, admin note, or contact detail.
-- [ ] **G3.4** `data` payloads contain identifiers only, never copied private content.
-- [ ] **G3.5** Malformed ObjectIds are rejected before any query.
-- [ ] **G3.6** Mark-read rate limits trigger.
-- [ ] **G3.7** Unauthenticated requests return 401.
+- [x] **G3.1** No account can read or modify another account's notifications (404 on cross-access).
+- [x] **G3.2** A client-supplied `userId` cannot redirect a notification or its read state.
+- [x] **G3.3** The serialiser exposes no reporter identity, admin note, or contact detail.
+- [x] **G3.4** `data` payloads contain identifiers only, never copied private content.
+- [x] **G3.5** Malformed ObjectIds are rejected before any query.
+- [x] **G3.6** Mark-read rate limits trigger.
+- [x] **G3.7** Unauthenticated requests return 401.
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** The inbox query uses the `{ userId, createdAt }` index (`IXSCAN`).
-- [ ] **G4.2** The unread count uses the `{ userId, readAt }` index rather than scanning.
-- [ ] **G4.3** The `data` object stays small; no notification embeds a profile or message document.
-- [ ] **G4.4** Notification creation never blocks the originating request in a way that multiplies latency (record
+- [x] **G4.1** The inbox query uses the `{ userId, createdAt }` index (`IXSCAN`).
+- [x] **G4.2** The unread count uses the `{ userId, readAt }` index rather than scanning.
+- [x] **G4.3** The `data` object stays small; no notification embeds a profile or message document.
+- [x] **G4.4** Notification creation never blocks the originating request in a way that multiplies latency (record
       the observed impact on the interest-send latency).
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §24 — the document and the full type set match the specification.
-- [ ] **G5.2** §24 — notifications are paginated.
-- [ ] **G5.3** §22 — blocked users generate and receive nothing.
-- [ ] **G5.4** §105 — the notification indexes exist.
-- [ ] **G5.5** §112 — no restricted data leaks through a notification.
-- [ ] **G5.6** §36 — the write paths are rate limited.
+- [x] **G5.1** §24 — the document and the full type set match the specification.
+- [x] **G5.2** §24 — notifications are paginated.
+- [x] **G5.3** §22 — blocked users generate and receive nothing.
+- [x] **G5.4** §105 — the notification indexes exist.
+- [x] **G5.5** §112 — no restricted data leaks through a notification.
+- [x] **G5.6** §36 — the write paths are rate limited.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] Every documented event type produces a correctly shaped notification.
-- [ ] Notifications are owner-scoped, paginated, and readable/unreadable only by their recipient.
-- [ ] Blocked users cannot notify each other.
-- [ ] High-frequency types cannot flood an inbox.
-- [ ] Step 16 can add admin-originated types without touching the core service.
+- [x] Every documented event type produces a correctly shaped notification.
+- [x] Notifications are owner-scoped, paginated, and readable/unreadable only by their recipient.
+- [x] Blocked users cannot notify each other.
+- [x] High-frequency types cannot flood an inbox.
+- [x] Step 16 can add admin-originated types without touching the core service.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated) |
+| Date | 2026-10-11 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **380/380** (0 skipped; 28 new in `tests/notification.test.js`); `node verify-step13.mjs` **27/27** live checks covering all seven doc commands plus the §105 index checklist, both `IXSCAN` plans, coalescing, privacy and the detached-creation latency record; regressions: steps 01 11/11, 03 12/12, 04 26/26, 05 23/23, 06 33/33, 07 26/26, 08 28/28, 09 25/25, 10 22/22, 11 36/36, 12 33/33; `scripts/verify-indexes.js` exit 0 (now covering `notifications`); `npm run verify` → **13/13 gates, 302/302 checks**, exit 0. |
+| Fixes required | None outstanding. **Notes:** the inbox index is `{ userId: 1, createdAt: -1, _id: -1 }` — the `_id` suffix is required because the keyset cursor breaks ties on it and a `createdAt`-only index would force a blocking sort (`explain` confirms `IXSCAN` with no `SORT` stage). **Found and fixed during the build:** `timestamps: true` makes `createdAt` an immutable path, so Mongoose silently strips an explicit `$set` of it from an update — the coalesce refresh reported success while leaving the row's date untouched, which would have let a coalesced row drift out of the throttle window and silently stop collapsing. The refresh now uses a driver-level `updateOne`; the same trap is documented in the test that backdates a row. The unread index is the plain `{ userId, readAt }` the step file specifies (not partial: the query-side `readAt: null` matches missing *and* null, so a partial predicate would not be implied by every read path). G4.4 recorded: the interest-send API returns in ~119 ms average over five timed sends while the notification row lands afterwards — creation is a detached microtask side effect (decisions §16) and a throwing handler is swallowed and logged. `new_message`, `verification_completed` and `admin_alert` have no producer yet (steps 14/16) and are verified at the service boundary via `create()`, which accepts them with identifiers-only payloads; `verification_completed`/`admin_alert` are the two peer-actor-less types that intentionally still deliver to a blocked recipient. Step-16 extension is verified by registering a new bus handler without editing the core. Inherits the step 02 G3.2 blocking item (over-privileged MongoDB credential). |

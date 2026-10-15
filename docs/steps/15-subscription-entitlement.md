@@ -1,9 +1,9 @@
 ---
 step: 15
 title: Subscription / Entitlement
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [04]
 unblocks: [16]
 spec_refs: ["§26", "§27", "§86", "§87", "§88", "§89", "§114", "§124", "§127"]
@@ -147,28 +147,28 @@ Nothing else is exposed in this phase. The later provider endpoints are listed i
 
 ## Build tasks
 
-- [ ] 1. Write `models/Subscription.js` with the schema, base plugin, and indexes.
-- [ ] 2. Write `constants/plans.js` (`free`, and placeholder identifiers for future paid plans) and
+- [x] 1. Write `models/Subscription.js` with the schema, base plugin, and indexes.
+- [x] 2. Write `constants/plans.js` (`free`, and placeholder identifiers for future paid plans) and
       `constants/features.js` (feature keys plus the plan-to-feature map).
-- [ ] 3. Write `subscriptionService.createFreeTrial(userId)`: create one `plan: "free"`, `source: "free_trial"`,
+- [x] 3. Write `subscriptionService.createFreeTrial(userId)`: create one `plan: "free"`, `source: "free_trial"`,
       `status: "active"` record with **`expiresAt: null`** (decisions §11, §22). Be idempotent so a retried
       registration hook cannot create duplicates (unique index on `{ userId, status }` for `active`, or an upsert).
       Do not compute an expiry date for the free plan.
-- [ ] 4. Hook `createFreeTrial` into the registration path from step 03, so a new account always has an entitlement.
+- [x] 4. Hook `createFreeTrial` into the registration path from step 03, so a new account always has an entitlement.
       Backfill existing accounts created before this step with a documented migration.
-- [ ] 5. Write `entitlementService.hasEntitlement(userId)` and `hasFeatureAccess(userId, featureKey)`:
+- [x] 5. Write `entitlementService.hasEntitlement(userId)` and `hasFeatureAccess(userId, featureKey)`:
       load the active subscription, resolve the plan's feature set, and return a boolean plus a reason for logging.
       Cache nothing server-side yet (spec §61); the query is indexed and cheap.
-- [ ] 6. Write the expiry sweep so it transitions **only** rows that have a non-null `expiresAt` and that past-due
+- [x] 6. Write the expiry sweep so it transitions **only** rows that have a non-null `expiresAt` and that past-due
       date, using the expiry index, and logs the count. It must **skip `plan: "free"` / `expiresAt: null` rows
       entirely** — the current free entitlement never expires (decisions §11, §22).
-- [ ] 7. Write the controller and route for `GET /subscription`, returning plan, status, `startedAt`, `expiresAt`,
+- [x] 7. Write the controller and route for `GET /subscription`, returning plan, status, `startedAt`, `expiresAt`,
       and the resolved feature list for the caller. Never return another user's subscription (spec §44).
-- [ ] 8. Document the provider seam: a comment block in `entitlementService` naming where a provider webhook would
+- [x] 8. Document the provider seam: a comment block in `entitlementService` naming where a provider webhook would
       call `grant()` to create or update a subscription, and noting that no provider code exists yet (spec §87, §88, §89).
-- [ ] 9. Add `hasFeatureAccess` as the single gate that other steps use; if any earlier step hardcoded a premium
+- [x] 9. Add `hasFeatureAccess` as the single gate that other steps use; if any earlier step hardcoded a premium
       assumption, route it through this service instead (spec §86).
-- [ ] 10. Add `payment_transactions` to the **future-only** list in `constants/collections.js` with a comment that it
+- [x] 10. Add `payment_transactions` to the **future-only** list in `constants/collections.js` with a comment that it
       is intentionally not created (spec §127).
 
 ## Business rules & security
@@ -238,75 +238,75 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/v1/subscript
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; the subscription route is mounted and protected.
-- [ ] **G1.2** Server boots with the model and indexes in place.
-- [ ] **G1.3** Steps 01–04 verification commands still pass, and any step that consulted entitlement still works.
+- [x] **G1.1** Every deliverable exists; the subscription route is mounted and protected.
+- [x] **G1.2** Server boots with the model and indexes in place.
+- [x] **G1.3** Steps 01–04 verification commands still pass, and any step that consulted entitlement still works.
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Registration creates exactly one free entitlement with `plan: "free"`, `status: "active"`,
+- [x] **G2.1** Registration creates exactly one free entitlement with `plan: "free"`, `status: "active"`,
       `expiresAt: null` (decisions §11).
-- [ ] **G2.2** Pre-existing accounts are backfilled so every user has an entitlement.
-- [ ] **G2.3** `hasFeatureAccess()` returns the correct answer for the current plan and is the only feature gate used.
-- [ ] **G2.4** `GET /subscription` returns plan, status, dates, and resolved features.
-- [ ] **G2.5** The expiry sweep transitions only past-due rows that have a non-null `expiresAt`; running it leaves
+- [x] **G2.2** Pre-existing accounts are backfilled so every user has an entitlement.
+- [x] **G2.3** `hasFeatureAccess()` returns the correct answer for the current plan and is the only feature gate used.
+- [x] **G2.4** `GET /subscription` returns plan, status, dates, and resolved features.
+- [x] **G2.5** The expiry sweep transitions only past-due rows that have a non-null `expiresAt`; running it leaves
       a `plan: "free"` / `expiresAt: null` entitlement `active` (decisions §11, §22).
-- [ ] **G2.7** `hasFeatureAccess()` returns true for every currently implemented feature under the free plan, with no
+- [x] **G2.7** `hasFeatureAccess()` returns true for every currently implemented feature under the free plan, with no
       feature gated (decisions §12).
-- [ ] **G2.6** Re-running the registration hook cannot create a second entitlement.
+- [x] **G2.6** Re-running the registration hook cannot create a second entitlement.
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** A client-supplied plan, source, or feature cannot change entitlement resolution.
-- [ ] **G3.2** One account cannot read another account's subscription.
-- [ ] **G3.3** No payment/provider route exists in this phase (404 on the documented future paths).
-- [ ] **G3.4** No provider secret or placeholder credential is present in the codebase or `.env.example`.
-- [ ] **G3.5** Business logic contains no branch on a provider name.
-- [ ] **G3.6** Unauthenticated access returns 401.
+- [x] **G3.1** A client-supplied plan, source, or feature cannot change entitlement resolution.
+- [x] **G3.2** One account cannot read another account's subscription.
+- [x] **G3.3** No payment/provider route exists in this phase (404 on the documented future paths).
+- [x] **G3.4** No provider secret or placeholder credential is present in the codebase or `.env.example`.
+- [x] **G3.5** Business logic contains no branch on a provider name.
+- [x] **G3.6** Unauthenticated access returns 401.
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** Entitlement lookup uses the `{ userId, status }` index (`IXSCAN`).
-- [ ] **G4.2** `hasFeatureAccess()` does not issue a query per feature in a loop; one lookup resolves the plan's set.
-- [ ] **G4.3** The expiry sweep uses the expiry index.
+- [x] **G4.1** Entitlement lookup uses the `{ userId, status }` index (`IXSCAN`).
+- [x] **G4.2** `hasFeatureAccess()` does not issue a query per feature in a loop; one lookup resolves the plan's set.
+- [x] **G4.3** The expiry sweep uses the expiry index.
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §26 — the subscription document matches the specification.
-- [ ] **G5.2** §86 / §114 — access is checked through a centralised feature/entitlement service.
-- [ ] **G5.3** §89 — no payment flow, checkout, or webhook is implemented.
-- [ ] **G5.4** §27 / §127 — `payment_transactions` is documented as future-only and not created.
-- [ ] **G5.5** §87 / §88 — provider flows are described as future work only.
-- [ ] **G5.6** §124 — payment providers appear only in the "later" section.
-- [ ] **G5.7** decisions §11, §12, §22 — indefinite free access (`expiresAt: null`, no automatic expiry) and the
+- [x] **G5.1** §26 — the subscription document matches the specification.
+- [x] **G5.2** §86 / §114 — access is checked through a centralised feature/entitlement service.
+- [x] **G5.3** §89 — no payment flow, checkout, or webhook is implemented.
+- [x] **G5.4** §27 / §127 — `payment_transactions` is documented as future-only and not created.
+- [x] **G5.5** §87 / §88 — provider flows are described as future work only.
+- [x] **G5.6** §124 — payment providers appear only in the "later" section.
+- [x] **G5.7** decisions §11, §12, §22 — indefinite free access (`expiresAt: null`, no automatic expiry) and the
       absence of premium restrictions are stated and verifiable.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] Every account has exactly one **indefinite** active free entitlement after registration (`expiresAt: null`).
-- [ ] Feature access is asked through one service and never inferred from a provider.
-- [ ] Every currently implemented feature is available on the free plan; nothing is gated.
-- [ ] No payment integration exists, and none of its endpoints are reachable.
-- [ ] The provider seam is clearly documented for a future step.
-- [ ] Adding Razorpay or Play Billing later requires no change to profile, connection, or chat logic.
+- [x] Every account has exactly one **indefinite** active free entitlement after registration (`expiresAt: null`).
+- [x] Feature access is asked through one service and never inferred from a provider.
+- [x] Every currently implemented feature is available on the free plan; nothing is gated.
+- [x] No payment integration exists, and none of its endpoints are reachable.
+- [x] The provider seam is clearly documented for a future step.
+- [x] Adding Razorpay or Play Billing later requires no change to profile, connection, or chat logic.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated) |
+| Date | 2026-10-11 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **403/403** (0 skipped; 23 new in `tests/subscription.test.js`); `node verify-step15.mjs` **21/21** live checks covering all seven doc commands plus the §105 index checklist (including the partial predicate), both `IXSCAN` plans, the backfill migration, the read-path self-heal, the concurrent-grant race and the provider-seam behaviour; regressions: steps 01 11/11, 03 12/12, 04 26/26, 05 23/23, 06 33/33, 07 26/26, 08 28/28, 09 25/25, 10 22/22, 11 36/36, 12 33/33, 13 27/27; `scripts/verify-indexes.js` exit 0 (now covering `subscriptions`); `npm run verify` → **14/14 gates, 323/323 checks**, exit 0. |
+| Fixes required | None outstanding. **Design decisions recorded:** "one active entitlement per user" is enforced by a **partial unique index** on `{ userId }` where `status: "active"` — the doc's "upsert" option alone would race, and a plain `{ userId, status }` unique index would forbid legitimate retired history; five concurrent grants are verified to leave exactly one row. The sweep is exposed as `entitlementService.expirePastDue()` and deliberately has **no automatic caller** in this phase: nothing can be expirable (`expiresAt: null` everywhere), and wiring a write into a read path for rows that cannot exist would be unjustified; the filter `expiresAt: { $ne: null, $lte: now }` is the policy. `GET /subscription` self-heals an account with **no subscription row at all** (legacy/pre-hook accounts) but does not resurrect an account whose only row is retired — re-granting access after expiry is a product decision, not a migration default; `scripts/backfill-entitlements.js` is the documented one-pass migration and is idempotent. The registration hook awaits the grant so "a new account always has an entitlement" is an invariant. `hasFeatureAccess()` fails closed on an unknown feature key (deny + warn). The provider seam `grant()` is implemented and tested but has no route and no caller; no file branches on a provider name (checked by scanning `src/`). `FREE_TRIAL_DAYS` is parsed but provably unused: no code path computes an expiry date. Inherits the step 02 G3.2 blocking item (over-privileged MongoDB credential). |

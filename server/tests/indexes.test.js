@@ -16,6 +16,11 @@ const mongoose = require('mongoose');
 
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'error';
+// The scratch collection below must be created in a dedicated database, not the
+// development one: this cluster is capped at 500 collections in total, and
+// `scratch_idx_*` residue from earlier runs had accumulated in the real
+// database until collection creation started failing.
+process.env.MONGODB_DB_NAME = 'chandravanshi_vivah_test_infra';
 
 const { connect, disconnect } = require('../src/config/db');
 const { verifyIndexes, baseline } = require('../scripts/verify-indexes');

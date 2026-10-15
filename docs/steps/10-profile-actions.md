@@ -1,9 +1,9 @@
 ---
 step: 10
 title: Profile Actions
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [09]
 unblocks: [11]
 spec_refs: ["§20", "§36", "§44", "§46", "§56", "§99", "§100", "§105", "§21"]
@@ -101,25 +101,25 @@ handled separately by step 13, which throttles/coalesces `profile_view`.
 
 ## Build tasks
 
-- [ ] 1. Write `models/ProfileAction.js` with the schema, base plugin, and the indexes above. Views use the finalized
+- [x] 1. Write `models/ProfileAction.js` with the schema, base plugin, and the indexes above. Views use the finalized
       one-row-per-pair rule: upsert, updating the timestamp instead of inserting (decisions §15). Configure the
       timestamp field so that write is legal.
-- [ ] 2. Write `constants/actions.js`: the action type enum, which types are idempotent, and the per-type rate-limit windows.
-- [ ] 3. Write `validators/action.validators.js`: validate `toUserId` (or `publicProfileId`), the action type, and
+- [x] 2. Write `constants/actions.js`: the action type enum, which types are idempotent, and the per-type rate-limit windows.
+- [x] 3. Write `validators/action.validators.js`: validate `toUserId` (or `publicProfileId`), the action type, and
       reject unknown fields. Convert a `publicProfileId` to a `userId` server-side only.
-- [ ] 4. Write `actionService.record()`: reject self-actions, verify the target profile exists and is `active`
+- [x] 4. Write `actionService.record()`: reject self-actions, verify the target profile exists and is `active`
       (spec §58), verify no block exists either way, then upsert idempotently for **all four types**, including `view`
       (one row per pair, timestamp refreshed — decisions §15).
-- [ ] 5. Write `actionService.remove()`: ownership-checked delete; return 404 for another user's action.
-- [ ] 6. Write `actionService.listShortlisted()`: return shortlisted profiles using the **card projection** from
+- [x] 5. Write `actionService.remove()`: ownership-checked delete; return 404 for another user's action.
+- [x] 6. Write `actionService.listShortlisted()`: return shortlisted profiles using the **card projection** from
       step 09, paginated — never the full profile document.
-- [ ] 7. Extend `exclusionService` so `pass` actions (and, if the product requires it, already-liked targets) are
+- [x] 7. Extend `exclusionService` so `pass` actions (and, if the product requires it, already-liked targets) are
       excluded from discovery (spec §56). Confirm step 09's query shape needs no change.
-- [ ] 8. Wire the view action so it updates the target's `profile.lastActiveAt` signal on a throttled basis, without
+- [x] 8. Wire the view action so it updates the target's `profile.lastActiveAt` signal on a throttled basis, without
       creating a write storm per render.
-- [ ] 9. Apply per-action rate limits (spec §36) and record an event that step 13 can later consume for
+- [x] 9. Apply per-action rate limits (spec §36) and record an event that step 13 can later consume for
       `profile_view` / `shortlisted` notifications (spec §24). Do not send notifications in this step.
-- [ ] 10. Write controller and routes with `requireAuth`; resolve the actor from `req.auth.userId` only (spec §44).
+- [x] 10. Write controller and routes with `requireAuth`; resolve the actor from `req.auth.userId` only (spec §44).
 
 ## Business rules & security
 
@@ -192,76 +192,80 @@ for i in $(seq 1 200); do curl -sS -o /dev/null -X POST http://localhost:3000/ap
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; interaction routes mounted and protected.
-- [ ] **G1.2** Server boots with the model and unique index in place.
-- [ ] **G1.3** Steps 01–09 verification commands still pass, especially discover filters and privacy.
+- [x] **G1.1** Every deliverable exists; interaction routes mounted and protected. *(tests G1.1; harness)*
+- [x] **G1.2** Server boots with the model and unique index in place. *(tests G1.2; harness §105)*
+- [x] **G1.3** Steps 01–09 verification commands still pass, especially discover filters and privacy. *(`npm run
+      verify` → 10/10 gates)*
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Each of the four action types can be recorded and read back.
-- [ ] **G2.2** Repeated like/shortlist/pass writes produce exactly one row.
-- [ ] **G2.3** Self-actions are rejected.
-- [ ] **G2.4** Shortlist listing returns card-shaped, paginated items in a sensible order.
-- [ ] **G2.5** Removing an action works for the owner and changes subsequent listings.
-- [ ] **G2.6** A `pass` action removes the target from discover results.
-- [ ] **G2.7** Action lists are paginated and bounded.
-- [ ] **G2.8** Recording a view updates the target's activity signal at most once per throttle window.
-- [ ] **G2.9** Viewing the same profile twice leaves exactly one `view` row for that pair, with the timestamp updated
-      (decisions §15).
+- [x] **G2.1** Each of the four action types can be recorded and read back. *(tests G2.1)*
+- [x] **G2.2** Repeated like/shortlist/pass writes produce exactly one row. *(tests G2.2; harness command 2)*
+- [x] **G2.3** Self-actions are rejected. *(tests G2.3; harness command 3)*
+- [x] **G2.4** Shortlist listing returns card-shaped, paginated items in a sensible order. *(tests G2.4; harness command 4)*
+- [x] **G2.5** Removing an action works for the owner and changes subsequent listings. *(tests G2.5; harness command 5)*
+- [x] **G2.6** A `pass` action removes the target from discover results. *(tests G2.6; harness command 6)*
+- [x] **G2.7** Action lists are paginated and bounded. *(tests G2.7; harness oversized-limit check)*
+- [x] **G2.8** Recording a view updates the target's activity signal at most once per throttle window. *(tests G2.8; harness)*
+- [x] **G2.9** Viewing the same profile twice leaves exactly one `view` row for that pair, with the timestamp updated
+      (decisions §15). *(tests G2.8/G2.9; harness decisions §15)*
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** A `userId` supplied in the body cannot act on behalf of another account.
-- [ ] **G3.2** Another user's action cannot be read or deleted.
-- [ ] **G3.3** A blocked pair cannot record an action in either direction.
-- [ ] **G3.4** Malformed ObjectIds and object-shaped values are rejected before any query.
-- [ ] **G3.5** Rate limits demonstrably trigger on action writes.
-- [ ] **G3.6** No action listing exposes another user's private profile fields.
-- [ ] **G3.7** Unauthenticated requests return 401.
+- [x] **G3.1** A `userId` supplied in the body cannot act on behalf of another account. *(tests G3.1)*
+- [x] **G3.2** Another user's action cannot be read or deleted. *(tests G3.2; harness command 5 — the delete is scoped
+      to the caller, so a foreign row answers 404 and survives)*
+- [x] **G3.3** A blocked pair cannot record an action in either direction. *(tests G3.3; harness command 8)*
+- [x] **G3.4** Malformed ObjectIds and object-shaped values are rejected before any query. *(tests G3.4)*
+- [x] **G3.5** Rate limits demonstrably trigger on action writes. *(tests G3.5; harness command 7)*
+- [x] **G3.6** No action listing exposes another user's private profile fields. *(tests G3.6; harness command 4)*
+- [x] **G3.7** Unauthenticated requests return 401. *(tests G1.1; harness)*
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** Pair lookups and shortlist listings use the designed indexes (`IXSCAN`).
-- [ ] **G4.2** Shortlist listing uses the shared card projection and does not load full profile documents.
-- [ ] **G4.3** The unique index prevents duplicate rows on concurrent identical writes, including two concurrent
-      view upserts for the same pair (decisions §15).
-- [ ] **G4.4** Repeated views by the same viewer do not grow the collection: record the row count for one pair before
-      and after a burst of views (expected: unchanged).
+- [x] **G4.1** Pair lookups and shortlist listings use the designed indexes (`IXSCAN`). *(tests G4.1; harness §49)*
+- [x] **G4.2** Shortlist listing uses the shared card projection and does not load full profile documents. *(tests G4.2/G4.4)*
+- [x] **G4.3** The unique index prevents duplicate rows on concurrent identical writes, including two concurrent
+      view upserts for the same pair (decisions §15). *(tests G4.3, both cases; 3 concurrent view upserts → 1 row)*
+- [x] **G4.4** Repeated views by the same viewer do not grow the collection: record the row count for one pair before
+      and after a burst of views (expected: unchanged). *(tests G4.4)*
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §20 — the action document matches the documented shape and types.
-- [ ] **G5.2** §56 / §99 — pass (and any product-required) exclusions feed discovery without changing its query shape.
-- [ ] **G5.3** §100 — view/like/shortlist rules are enforced server-side.
-- [ ] **G5.4** §36 — action writes are rate limited.
-- [ ] **G5.5** §105 — the `profile_actions` indexes are present.
-- [ ] **G5.6** §91 — no business logic lives only in the frontend.
+- [x] **G5.1** §20 — the action document matches the documented shape and types. *(tests G5.1; harness §20)*
+- [x] **G5.2** §56 / §99 — pass (and any product-required) exclusions feed discovery without changing its query shape.
+      *(tests G5.2; harness command 6 — step 09's builder needed no edit)*
+- [x] **G5.3** §100 — view/like/shortlist rules are enforced server-side. *(tests G5.3)*
+- [x] **G5.4** §36 — action writes are rate limited. *(tests G3.5; harness command 7)*
+- [x] **G5.5** §105 — the `profile_actions` indexes are present. *(tests G1.2; harness §105; `verify-indexes.js`)*
+- [x] **G5.6** §91 — no business logic lives only in the frontend. *(tests G5.6 — the service surface and the step-13
+      event bus exist and are driven through HTTP)*
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] The four action types are recorded idempotently and safely.
-- [ ] Shortlists render from the card projection with no private data.
-- [ ] Passing a profile removes it from discovery.
-- [ ] No user can act on, view, or delete another user's action record.
-- [ ] Step 11 can build the interest flow on top of a consistent action vocabulary.
+- [x] The four action types are recorded idempotently and safely.
+- [x] Shortlists render from the card projection with no private data.
+- [x] Passing a profile removes it from discovery.
+- [x] No user can act on, view, or delete another user's action record.
+- [x] Step 11 can build the interest flow on top of a consistent action vocabulary.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated) |
+| Date | 2026-10-10 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **284/284** (0 skipped; 27 new in `tests/action.test.js`); `node verify-step10.mjs` **22/22** live checks covering all eight doc commands plus the §105 index checklist, the `IXSCAN` pair plan, the view one-row/throttle rule, the event bus and payload privacy; regressions: steps 01 11/11, 03 12/12, 04 26/26, 05 23/23, 06 33/33, 07 26/26, 08 28/28, 09 25/25; `scripts/verify-indexes.js` exit 0; `npm run verify` → **10/10 gates, 206/206 checks**. |
+| Fixes required | None outstanding. **Notes:** command 8 (blocked pair) is verified at the `exclusionService`/`actionService` boundary rather than over HTTP, because the `blocks` collection and its model belong to step 12, so the running server registers no `Block` model yet; the harness registers a minimal stand-in and drives the same rule step 12 will run. The interaction limiter is verified against its own configured cap (`ACTION_RATE_LIMIT_MAX`); the harness's server raises only the login and *global* limits so the harness's account volume and deliberate command-7 flood do not trip an unrelated cap. "Who viewed me" remains unexposed (spec §112). Inherits the step 02 G3.2 blocking item (over-privileged MongoDB credential). |

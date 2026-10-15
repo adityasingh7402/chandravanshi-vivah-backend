@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * Authentication service (spec §5, §6, §40, §94, §95).
@@ -8,22 +8,31 @@
  * `passwordHash` on it.
  */
 
-const crypto = require('crypto');
-const config = require('../config/env');
-const User = require('../models/User');
-const passwordService = require('./passwordService');
-const sessionService = require('./sessionService');
-const { normaliseIdentifier } = require('../utils/identifier');
-const { ConflictError, UnauthorizedError, ForbiddenError, BadRequestError } = require('../utils/AppError');
-const { logger } = require('../middleware/requestLogger');
+const crypto = require("crypto");
+const config = require("../config/env");
+const User = require("../models/User");
+const passwordService = require("./passwordService");
+const sessionService = require("./sessionService");
+// Step 15: every new account receives the indefinite free entitlement. The
+// grant is an idempotent upsert against a unique index, so a retried
+// registration cannot create a second one (decisions §11).
+const subscriptionService = require("./subscriptionService");
+const { normaliseIdentifier } = require("../utils/identifier");
+const {
+  ConflictError,
+  UnauthorizedError,
+  ForbiddenError,
+  BadRequestError,
+} = require("../utils/AppError");
+const { logger } = require("../middleware/requestLogger");
 const {
   ROLES,
   STATUSES,
   DUPLICATE_MESSAGES,
   INVALID_CREDENTIALS_MESSAGE,
   WRONG_CURRENT_PASSWORD_MESSAGE,
-  AUDIT_ACTIONS
-} = require('../constants/auth');
+  AUDIT_ACTIONS,
+} = require("../constants/auth");
 
 /**
  * Record a sensitive account action.
@@ -40,7 +49,8 @@ function audit(action, fields = {}) {
 // not exist, so login timing cannot reveal whether an account exists.
 let dummyHashPromise = null;
 function dummyHash() {
-  if (!dummyHashPromise) dummyHashPromise = passwordService.hash(crypto.randomUUID());
+  if (!dummyHashPromise)
+    dummyHashPromise = passwordService.hash(crypto.randomUUID());
   return dummyHashPromise;
 }
 
@@ -57,8 +67,8 @@ function dummyHash() {
  * @param {string} value normalised identifier
  */
 function identifierQuery(type, value) {
-  const field = type === 'email' ? 'email' : 'phone';
-  return { $and: [{ [field]: value }, { [field]: { $type: 'string' } }] };
+  const field = type === "email" ? "email" : "phone";
+  return { $and: [{ [field]: value }, { [field]: { $type: "string" } }] };
 }
 
 /**
@@ -71,11 +81,13 @@ async function register({ identifierType, identifier, password }) {
   const { type, value } = normaliseIdentifier({
     identifierType,
     identifier,
-    country: config.auth.defaultPhoneCountry
+    country: config.auth.defaultPhoneCountry,
   });
 
   // Friendly 409 before hashing; the unique index still guards the race below.
-  const existing = await User.findOne(identifierQuery(type, value)).select('_id');
+  const existing = await User.findOne(identifierQuery(type, value)).select(
+    "_id",
+  );
   if (existing) throw new ConflictError(DUPLICATE_MESSAGES[type]);
 
   const passwordHash = await passwordService.hash(password);
@@ -86,7 +98,7 @@ async function register({ identifierType, identifier, password }) {
     passwordHash,
     // Role and status are server-decided; a request body can never set them (spec §31, §44).
     role: ROLES.USER,
-    status: STATUSES.ACTIVE
+    status: STATUSES.ACTIVE,
   };
   document[type] = value;
 
@@ -95,9 +107,16 @@ async function register({ identifierType, identifier, password }) {
     user = await User.create(document);
   } catch (err) {
     // Losing the race on the unique index is still a duplicate, not a 500.
-    if (err && err.code === 11000) throw new ConflictError(DUPLICATE_MESSAGES[type]);
+    if (err && err.code === 11000)
+      throw new ConflictError(DUPLICATE_MESSAGES[type]);
     throw err;
   }
+
+  // Grant the free entitlement immediately (step 15 task 4). Awaited so
+  // "a new account always has an entitlement" is an invariant rather than a
+  // best effort; a pre-existing account is covered by the backfill script and
+  // by the read-path self-heal in subscriptionService.ensureExists().
+  await subscriptionService.createFreeTrial(String(user._id));
 
   audit(AUDIT_ACTIONS.REGISTER, { userId: String(user._id) });
   return user.toPublic();
@@ -116,11 +135,13 @@ async function verifyCredentials({ identifierType, identifier, password }) {
   const { type, value } = normaliseIdentifier({
     identifierType,
     identifier,
-    country: config.auth.defaultPhoneCountry
+    country: config.auth.defaultPhoneCountry,
   });
 
   // `passwordHash` is select:false, so it must be asked for explicitly here.
-  const user = await User.findOne(identifierQuery(type, value)).select('+passwordHash');
+  const user = await User.findOne(identifierQuery(type, value)).select(
+    "+passwordHash",
+  );
 
   if (!user) {
     // Burn comparable CPU so timing does not distinguish "no such account".
@@ -134,7 +155,9 @@ async function verifyCredentials({ identifierType, identifier, password }) {
   // Only a holder of the correct password sees the account-state message, so
   // this does not leak account existence.
   if (user.status !== STATUSES.ACTIVE) {
-    throw new ForbiddenError('This account is not active. Please contact support.');
+    throw new ForbiddenError(
+      "This account is not active. Please contact support.",
+    );
   }
 
   // Transparently upgrade a hash produced with weaker parameters (spec §40).
@@ -158,20 +181,30 @@ async function verifyCredentials({ identifierType, identifier, password }) {
  *          currentSessionId?: string}} input
  * @returns {Promise<object>} the public user shape
  */
-async function changePassword({ userId, currentPassword, newPassword, currentSessionId }) {
-  const user = await User.findById(userId).select('+passwordHash');
-  if (!user) throw new UnauthorizedError('Authentication is required.');
+async function changePassword({
+  userId,
+  currentPassword,
+  newPassword,
+  currentSessionId,
+}) {
+  const user = await User.findById(userId).select("+passwordHash");
+  if (!user) throw new UnauthorizedError("Authentication is required.");
 
-  const currentMatches = await passwordService.verify(user.passwordHash, currentPassword);
+  const currentMatches = await passwordService.verify(
+    user.passwordHash,
+    currentPassword,
+  );
   if (!currentMatches) {
     throw new BadRequestError(WRONG_CURRENT_PASSWORD_MESSAGE, {
-      details: { currentPassword: WRONG_CURRENT_PASSWORD_MESSAGE }
+      details: { currentPassword: WRONG_CURRENT_PASSWORD_MESSAGE },
     });
   }
 
   if (currentPassword === newPassword) {
-    throw new BadRequestError('Invalid request.', {
-      details: { newPassword: 'The new password must differ from the current password.' }
+    throw new BadRequestError("Invalid request.", {
+      details: {
+        newPassword: "The new password must differ from the current password.",
+      },
     });
   }
 
@@ -181,11 +214,33 @@ async function changePassword({ userId, currentPassword, newPassword, currentSes
   // A credential change ends access on every other device (spec §40, gate G2.6).
   // The caller's own session is kept alive so they are not signed out by their
   // own action.
-  const revoked = await sessionService.revokeAllForUser(user._id, { exceptSessionId: currentSessionId });
+  const revoked = await sessionService.revokeAllForUser(user._id, {
+    exceptSessionId: currentSessionId,
+  });
 
-  audit(AUDIT_ACTIONS.CHANGE_PASSWORD, { userId: String(user._id), otherSessionsRevoked: revoked });
+  audit(AUDIT_ACTIONS.CHANGE_PASSWORD, {
+    userId: String(user._id),
+    otherSessionsRevoked: revoked,
+  });
 
   return user.toPublic();
 }
 
-module.exports = { register, verifyCredentials, changePassword, identifierQuery };
+/** Persist the caller's current onboarding screen for draft resume support. */
+async function updateOnboardingStep(userId, step) {
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { onboardingStep: step } },
+    { new: true },
+  );
+  if (!user) throw new UnauthorizedError("Authentication is required.");
+  return user.toPublic();
+}
+
+module.exports = {
+  register,
+  verifyCredentials,
+  changePassword,
+  updateOnboardingStep,
+  identifierQuery,
+};

@@ -1,0 +1,18 @@
+[
+  { "name": "Travel", "sortOrder": 1 },
+  { "name": "Technology", "sortOrder": 2 },
+  { "name": "Business", "sortOrder": 3 },
+  { "name": "Finance", "sortOrder": 4 },
+  { "name": "Music", "sortOrder": 5 },
+  { "name": "Books", "sortOrder": 6 },
+  { "name": "Sports", "sortOrder": 7 },
+  { "name": "Art", "sortOrder": 8 },
+  { "name": "Culture", "sortOrder": 9 },
+  { "name": "Food", "sortOrder": 10 },
+  { "name": "Fitness", "sortOrder": 11 },
+  { "name": "Social Work", "sortOrder": 12 },
+  { "name": "Entrepreneurship", "sortOrder": 13 },
+  { "name": "Spirituality", "sortOrder": 14 },
+  { "name": "Nature", "sortOrder": 15 },
+  { "name": "Other", "sortOrder": 999 }
+]

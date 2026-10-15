@@ -1,9 +1,9 @@
 ---
 step: 12
 title: Block & Report
-status: not_started
-build: not_started
-audit: not_run
+status: audited_notes
+build: built
+audit: passed
 depends_on: [11]
 unblocks: [13, 16]
 spec_refs: ["§22", "§23", "§24", "§36", "§44", "§56", "§91", "§99", "§101", "§105", "§112"]
@@ -228,75 +228,75 @@ curl -sS -X POST http://localhost:3000/api/v1/reports -H "Authorization: Bearer 
 
 ### Gate 1 — Build integrity
 
-- [ ] **G1.1** Every deliverable exists; block and report routes mounted and protected.
-- [ ] **G1.2** Server boots with both models and their indexes.
-- [ ] **G1.3** Steps 01–11 verification commands still pass after the block checks are wired in.
+- [x] **G1.1** Every deliverable exists; block and report routes mounted and protected.
+- [x] **G1.2** Server boots with both models and their indexes.
+- [x] **G1.3** Steps 01–11 verification commands still pass after the block checks are wired in.
 
 ### Gate 2 — Functional
 
-- [ ] **G2.1** Block, unblock, and list work; blocking is idempotent; self-block is refused.
-- [ ] **G2.2** A block removes the pair from discovery in both directions.
-- [ ] **G2.3** A block prevents interest send and respond in both directions.
-- [ ] **G2.4** A block makes `canChat` false in both directions.
-- [ ] **G2.5** A block suppresses notifications between the pair once step 13 exists; the hook is in place now.
-- [ ] **G2.6** Unblocking restores the ability to interact without restoring any prior relationship.
-- [ ] **G2.7** A report can be filed with each category and appears in the caller's own list with status `open`.
-- [ ] **G2.8** Self-reports and invalid categories are refused.
-- [ ] **G2.9** The duplicate-report rule (chosen behaviour) is implemented and observed.
+- [x] **G2.1** Block, unblock, and list work; blocking is idempotent; self-block is refused.
+- [x] **G2.2** A block removes the pair from discovery in both directions.
+- [x] **G2.3** A block prevents interest send and respond in both directions.
+- [x] **G2.4** A block makes `canChat` false in both directions.
+- [x] **G2.5** A block suppresses notifications between the pair once step 13 exists; the hook is in place now.
+- [x] **G2.6** Unblocking restores the ability to interact without restoring any prior relationship.
+- [x] **G2.7** A report can be filed with each category and appears in the caller's own list with status `open`.
+- [x] **G2.8** Self-reports and invalid categories are refused.
+- [x] **G2.9** The duplicate-report rule (chosen behaviour) is implemented and observed.
 
 ### Gate 3 — Security
 
-- [ ] **G3.1** A user cannot block or report on behalf of another account.
-- [ ] **G3.2** The reported user's view never reveals the reporter's identity (spec §112).
-- [ ] **G3.3** User routes cannot set `status`, `reviewedBy`, or `reviewedAt` on a report.
-- [ ] **G3.4** `evidence` accepts only strings/references within the cap; arbitrary objects are rejected.
-- [ ] **G3.5** Description is length-capped and cannot inject markup.
-- [ ] **G3.6** Malformed ObjectIds and object-shaped values are rejected before any query.
-- [ ] **G3.7** Block and report rate limits trigger.
-- [ ] **G3.8** Unauthenticated requests return 401.
+- [x] **G3.1** A user cannot block or report on behalf of another account.
+- [x] **G3.2** The reported user's view never reveals the reporter's identity (spec §112).
+- [x] **G3.3** User routes cannot set `status`, `reviewedBy`, or `reviewedAt` on a report.
+- [x] **G3.4** `evidence` accepts only strings/references within the cap; arbitrary objects are rejected.
+- [x] **G3.5** Description is length-capped and cannot inject markup.
+- [x] **G3.6** Malformed ObjectIds and object-shaped values are rejected before any query.
+- [x] **G3.7** Block and report rate limits trigger.
+- [x] **G3.8** Unauthenticated requests return 401.
 
 ### Gate 4 — Performance & data
 
-- [ ] **G4.1** Exclusion-id lookups use the block indexes; the discover query still plans to `IXSCAN`.
-- [ ] **G4.2** The block list and the caller's report list are paginated and bounded.
-- [ ] **G4.3** A very large block set does not degrade the discover plan; note the observed behaviour against the
+- [x] **G4.1** Exclusion-id lookups use the block indexes; the discover query still plans to `IXSCAN`.
+- [x] **G4.2** The block list and the caller's report list are paginated and bounded.
+- [x] **G4.3** A very large block set does not degrade the discover plan; note the observed behaviour against the
       `$nin` guard from step 09 (spec §99).
 
 ### Gate 5 — Spec conformance
 
-- [ ] **G5.1** §22 — the block document and its full effect set match the specification.
-- [ ] **G5.2** §23 — the report document, category set, and statuses match.
-- [ ] **G5.3** §56 / §99 — both block directions are excluded from discovery.
-- [ ] **G5.4** §101 — reports are ready for the admin moderation flow without exposing admin data.
-- [ ] **G5.5** §36 — both write paths are rate limited.
-- [ ] **G5.6** §105 — the block and report indexes exist.
-- [ ] **G5.7** §112 — reporter identity and admin fields are restricted.
+- [x] **G5.1** §22 — the block document and its full effect set match the specification.
+- [x] **G5.2** §23 — the report document, category set, and statuses match.
+- [x] **G5.3** §56 / §99 — both block directions are excluded from discovery.
+- [x] **G5.4** §101 — reports are ready for the admin moderation flow without exposing admin data.
+- [x] **G5.5** §36 — both write paths are rate limited.
+- [x] **G5.6** §105 — the block and report indexes exist.
+- [x] **G5.7** §112 — reporter identity and admin fields are restricted.
 
 ### Verdict
 
 | | |
 |---|---|
-| Gate 1 | ☐ pass ☐ fail |
-| Gate 2 | ☐ pass ☐ fail |
-| Gate 3 | ☐ pass ☐ fail |
-| Gate 4 | ☐ pass ☐ fail |
-| Gate 5 | ☐ pass ☐ fail |
-| **Result** | ☐ PASS ☐ PASS WITH NOTES ☐ FAIL |
+| Gate 1 | ☑ pass ☐ fail |
+| Gate 2 | ☑ pass ☐ fail |
+| Gate 3 | ☑ pass ☐ fail |
+| Gate 4 | ☑ pass ☐ fail |
+| Gate 5 | ☑ pass ☐ fail |
+| **Result** | ☐ PASS ☑ PASS WITH NOTES ☐ FAIL |
 
 ## Acceptance criteria
 
-- [ ] Blocking severs discovery, interests, actions, chat, and notifications in both directions.
-- [ ] Reporting opens a moderation-ready case without revealing the reporter.
-- [ ] No user route can alter moderation state.
-- [ ] Steps 13 and 16 can consume blocks and reports without re-implementing the rules.
-- [ ] Earlier steps still pass after the block checks are wired in.
+- [x] Blocking severs discovery, interests, actions, chat, and notifications in both directions.
+- [x] Reporting opens a moderation-ready case without revealing the reporter.
+- [x] No user route can alter moderation state.
+- [x] Steps 13 and 16 can consume blocks and reports without re-implementing the rules.
+- [x] Earlier steps still pass after the block checks are wired in.
 
 ## Sign-off
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Verdict | |
-| Evidence | |
-| Fixes required | |
+| Auditor | Buffy (automated) |
+| Date | 2026-10-11 |
+| Verdict | PASS WITH NOTES |
+| Evidence | `npm run lint` exit 0; `npm test` **352/352** (0 skipped; 30 new in `tests/safety.test.js`); `node verify-step12.mjs` **33/33** live checks covering all thirteen doc commands plus the §105 index checklist, the exclusion `IXSCAN`, the derived-`canChat` rule, the duplicate-report refusal and payload privacy; regressions: steps 01 11/11, 03 12/12, 04 26/26, 05 23/23, 06 33/33, 07 26/26, 08 28/28, 09 25/25, 10 22/22, 11 36/36; `scripts/verify-indexes.js` exit 0 (now covering `blocks` and `reports`); `npm run verify` → **12/12 gates, 275/275 checks**, exit 0. |
+| Fixes required | None outstanding. **Notes:** the duplicate-report rule is a **refusal** — a second report on the same target while the caller's earlier one is still `open` is a 409, and filing again after the case is `dismissed` is allowed; a counter would let one account flood the moderation queue. `canChat` under a block is **derived**, not written: the connection document is untouched (history preserved per decisions §7) and the access decision consults the block set, which is what makes unblocking a pure removal. The block service also treats an accepted connection as closed **for access** without flipping its status. Notification suppression is wired as a `blockedPair` hook that step 13's dispatcher consults (G2.5 verified at the hook boundary). G4.3: a block set up to `EXCLUSION_MAX_IDS` (1000) is returned whole and discover still plans `IXSCAN`; a larger set is refused at the exclusion boundary rather than silently truncated (step 09's guard). Step-16 admin report transitions (`open → reviewed/…`, `reviewedBy/At`) are deliberately absent from user routes. Inherits the step 02 G3.2 blocking item (over-privileged MongoDB credential). |

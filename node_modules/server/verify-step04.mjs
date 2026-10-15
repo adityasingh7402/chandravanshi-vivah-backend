@@ -406,4 +406,6 @@ await mongoose.disconnect();
 const failed = results.filter((r) => !r.pass);
 for (const r of results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name}  (${r.detail})`);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-process.exit(failed.length ? 1 : 0);
+// `process.exit()` can abort before pending stdout writes flush (observed on
+// Windows with a piped stdout); exitCode keeps the status and exits cleanly.
+process.exitCode = failed.length ? 1 : 0;
