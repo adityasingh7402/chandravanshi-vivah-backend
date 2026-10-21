@@ -41,7 +41,7 @@ const { ConflictError, NotFoundError, BadRequestError } = require('../utils/AppE
  * Kahar clan being attached to a Yadav gotra (spec §97; step 05).
  */
 const MASTER_REFERENCES = Object.freeze([
-  { field: 'community.communityId', type: 'communities' },
+  { field: 'community.communityId', type: 'communities', nameField: 'community.communityName' },
   { field: 'community.subCommunityId', type: 'sub_communities', scope: ['communityId'] },
   { field: 'community.surnameId', type: 'surnames', scope: ['communityId'], nameField: 'community.surnameName' },
   { field: 'community.gotraId', type: 'gotras', scope: ['communityId'], nameField: 'community.gotraName' },
@@ -52,7 +52,7 @@ const MASTER_REFERENCES = Object.freeze([
   { field: 'location.stateId', type: 'states', scope: ['countryId'], nameField: 'location.stateName' },
   { field: 'location.districtId', type: 'districts', scope: ['stateId'], nameField: 'location.districtName' },
   { field: 'location.cityId', type: 'cities', scope: ['districtId'], nameField: 'location.cityName' },
-  { field: 'education.highestQualificationId', type: 'degrees' },
+  { field: 'education.highestQualificationId', type: 'degrees', nameField: 'education.highestQualificationName' },
   { field: 'education.degreeId', type: 'degrees', nameField: 'education.degreeName' },
   { field: 'education.specializationId', type: 'specializations', scope: ['degreeId'], nameField: 'education.specializationName' },
   { field: 'education.universityId', type: 'universities', nameField: 'education.universityName' },
@@ -349,6 +349,10 @@ async function update(userId, patch) {
 async function getOwn(userId) {
   const profile = await MatrimonialProfile.findOne({ userId });
   if (!profile) return null;
+  const sections = JSON.parse(JSON.stringify(profile.toObject({ transform: null })));
+  if (sections.location) delete sections.location.coordinates;
+  const resolved = await resolveMasterReferences(sections);
+  for (const key of CONTENT_SECTIONS) profile[key] = resolved[key];
   // Reading your own profile is activity (spec §58 lastActiveAt).
   profile.profile.lastActiveAt = new Date();
   profile.markModified('profile');

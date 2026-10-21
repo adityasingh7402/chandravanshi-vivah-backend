@@ -80,6 +80,15 @@ const MASTER_CATEGORIES = Object.freeze({
     userInputtable: true,
     scopeFields: Object.freeze(['communityId']),
     missingReason: null
+  }),
+  city: Object.freeze({
+    type: 'cities',
+    inputKey: 'cityName',
+    requestType: 'city',
+    label: 'City',
+    userInputtable: true,
+    scopeFields: Object.freeze([]),
+    missingReason: null
   })
 });
 
@@ -99,7 +108,7 @@ const USER_INPUTTABLE_TYPES = Object.freeze(
  * (step 05) makes clan and aaspad user-inputtable too, so they are included
  * here rather than submitting without a review row.
  */
-const REQUEST_TYPES = Object.freeze(['gotra', 'surname', 'sub_community', 'clan', 'aaspad']);
+const REQUEST_TYPES = Object.freeze(['gotra', 'surname', 'sub_community', 'clan', 'aaspad', 'city']);
 
 /** Look up a category descriptor by its collection slug. */
 function getCategoryByType(type) {

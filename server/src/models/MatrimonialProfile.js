@@ -53,6 +53,7 @@ const matrimonialProfileSchema = new mongoose.Schema(
 
     community: {
       communityId: idOrNull,
+      communityName: nameOrNull,
       subCommunityId: idOrNull,
       surnameId: idOrNull,
       surnameName: nameOrNull,
@@ -90,6 +91,7 @@ const matrimonialProfileSchema = new mongoose.Schema(
 
     education: {
       highestQualificationId: idOrNull,
+      highestQualificationName: nameOrNull,
       degreeId: idOrNull,
       degreeName: nameOrNull,
       specializationId: idOrNull,

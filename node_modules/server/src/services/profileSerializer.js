@@ -59,12 +59,12 @@ function section(document, key, fields) {
 
 const BASIC_FIELDS = ['profileFor', 'firstName', 'middleName', 'lastName', 'gender', 'dateOfBirth', 'maritalStatus'];
 const COMMUNITY_FIELDS = [
-  'communityId', 'subCommunityId', 'surnameId', 'surnameName', 'gotraId', 'gotraName',
+  'communityId', 'communityName', 'subCommunityId', 'surnameId', 'surnameName', 'gotraId', 'gotraName',
   'clanId', 'clanName', 'aaspadId', 'aaspadName', 'motherTongueId', 'motherTongueName', 'religion'
 ];
 const LOCATION_FIELDS = ['countryId', 'stateId', 'districtId', 'cityId', 'countryName', 'stateName', 'districtName', 'cityName'];
 const EDUCATION_FIELDS = [
-  'highestQualificationId', 'degreeId', 'degreeName', 'specializationId', 'specializationName',
+  'highestQualificationId', 'highestQualificationName', 'degreeId', 'degreeName', 'specializationId', 'specializationName',
   'collegeId', 'universityId', 'universityName', 'graduationYear'
 ];
 const CAREER_FIELDS = [

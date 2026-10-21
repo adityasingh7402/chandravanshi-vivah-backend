@@ -114,6 +114,7 @@ const basicSchema = z
 const communitySchema = z
   .object({
     communityId: optionalId,
+    communityName: optionalText(80, 'Community'),
     subCommunityId: optionalId,
     surnameId: optionalId,
     // Profile-local custom surname, allowed only when surnameId is null (§4.3).
@@ -148,6 +149,7 @@ const locationSchema = z
 const educationSchema = z
   .object({
     highestQualificationId: optionalId,
+    highestQualificationName: optionalText(80, 'Highest qualification'),
     degreeId: optionalId,
     degreeName: optionalText(80, 'Degree'),
     specializationId: optionalId,
