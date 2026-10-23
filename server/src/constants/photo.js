@@ -59,12 +59,19 @@ const SAFE_IMAGE_FORMATS = Object.freeze([
  * `gravity: 'face'` keeps the subject centered when a non-square upload is
  * cropped, and `fetchFormat: 'auto'` lets Cloudinary deliver WebP/AVIF to a
  * client that accepts it.
+ *
+ * The card size is chosen from the slot it is rendered in, not from a wish to be
+ * small: a discovery card is a square cell roughly 320-360 CSS pixels wide, so a
+ * 2x screen needs ~640-720 real pixels. The previous 200x200 asset was upscaled
+ * ~1.7x by the browser and read as soft/blurry. 640 keeps a grid sharp on a
+ * retina display while `f_auto`/`q_auto` keep each card to a few tens of KB, and
+ * it stays below the profile variant so a feed never downloads the detail size.
  */
 const TRANSFORMATIONS = Object.freeze({
   card: Object.freeze({
     label: 'Discovery card',
-    width: 200,
-    height: 200,
+    width: 640,
+    height: 640,
     crop: 'fill',
     gravity: 'face',
     quality: 'auto',
@@ -72,8 +79,8 @@ const TRANSFORMATIONS = Object.freeze({
   }),
   profile: Object.freeze({
     label: 'Profile page',
-    width: 600,
-    height: 600,
+    width: 900,
+    height: 900,
     crop: 'fill',
     gravity: 'face',
     quality: 'auto',

@@ -18,12 +18,21 @@ const { createRateLimiter } = require('../middleware/rateLimit');
 const router = express.Router();
 
 // Refresh is rate limited: it is a credential-accepting endpoint (spec §36).
+//
+// It does NOT share the login budget: a signed-in browser presents the cookie
+// on every page load and every new tab, which is normal traffic rather than a
+// guess. Its own window is deliberately wider, and successful rotations are not
+// counted at all (`skipSuccessfulRequests`), so only a rejected token can ever
+// exhaust it. Sharing the 10-per-15-minutes login limit meant an ordinary
+// reload was answered 429 and the client — which reads any non-2xx refresh as
+// "no session" — sent the member back to sign-in.
 router.post(
   '/refresh',
   createRateLimiter({
     name: 'auth-refresh',
-    windowSeconds: config.auth.rateLimit.windowSeconds,
-    limit: config.auth.rateLimit.max
+    windowSeconds: config.auth.rateLimit.refreshWindowSeconds,
+    limit: config.auth.rateLimit.refreshMax,
+    skipSuccessfulRequests: true
   }),
   validateBody(refreshSchema),
   controller.refresh

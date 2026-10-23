@@ -238,6 +238,18 @@ function buildConfig() {
 
   const authRateLimitWindow = integer('AUTH_RATE_LIMIT_WINDOW', { fallback: 900, min: 1, max: 86400 });
   const authRateLimitMax = integer('AUTH_RATE_LIMIT_MAX', { fallback: 10, min: 1, max: 100000 });
+  // Refresh is not a brute-force surface the way login is: the browser sends it
+  // on every page load / new tab just to re-establish a session it already has.
+  // Reusing the login budget (10 per 15 min) means a member who reloads the app
+  // a handful of times is answered 429 and, to the client, looks signed out.
+  // It therefore gets its own, wider window; the route also ignores successful
+  // refresh calls when counting, so only rejected tokens consume the budget.
+  const refreshRateLimitWindow = integer('REFRESH_RATE_LIMIT_WINDOW', {
+    fallback: authRateLimitWindow,
+    min: 1,
+    max: 86400
+  });
+  const refreshRateLimitMax = integer('REFRESH_RATE_LIMIT_MAX', { fallback: 60, min: 1, max: 100000 });
 
   // --- Master data (step 05) -------------------------------------------
   // Search is bounded at both ends: a query shorter than the minimum never
@@ -368,6 +380,21 @@ function buildConfig() {
   // Cloudinary accepts a signed upload while the timestamp is within an hour of
   // the request, so a longer TTL here would be a promise the CDN does not keep.
   const photoSignTtlSeconds = integer('PHOTO_SIGN_TTL_SECONDS', { fallback: 600, min: 30, max: 3600 });
+
+  // Moderation stand-in for development (spec §17, §101). Every upload is
+  // `pending` and invisible to the community until a moderator approves it — the
+  // correct production rule, but locally there is no moderator, so an uploaded
+  // photo could never appear for anyone (the owner's own public profile
+  // included) and the flow looks broken. This flag, refused in production, makes
+  // a development upload immediately approved so the gallery, public profile and
+  // discovery can be exercised.
+  const photoAutoApprove = oneOf('PHOTO_AUTO_APPROVE', ['true', 'false'], 'false') === 'true';
+  if (photoAutoApprove && isProduction) {
+    throw new ConfigurationError(
+      'PHOTO_AUTO_APPROVE',
+      'is not allowed in production; every photo must be reviewed before the community can see it.'
+    );
+  }
 
   // --- Discover / search (step 09) --------------------------------------
   // Page sizes are configured (spec §52, §80): the default is what a request
@@ -550,7 +577,12 @@ function buildConfig() {
         parallelism: argon2Parallelism
       }),
       defaultPhoneCountry,
-      rateLimit: Object.freeze({ windowSeconds: authRateLimitWindow, max: authRateLimitMax })
+      rateLimit: Object.freeze({
+        windowSeconds: authRateLimitWindow,
+        max: authRateLimitMax,
+        refreshWindowSeconds: refreshRateLimitWindow,
+        refreshMax: refreshRateLimitMax
+      })
     }),
     masterData: Object.freeze({
       searchMinLen: masterSearchMinLen,
@@ -593,7 +625,9 @@ function buildConfig() {
       photoMaxCount,
       photoMaxBytes,
       photoAllowedFormats,
-      photoSignTtlSeconds
+      photoSignTtlSeconds,
+      // Development-only moderation stand-in; always false in production.
+      photoAutoApprove
     }),
     search: Object.freeze({
       defaultLimit: searchDefaultLimit,

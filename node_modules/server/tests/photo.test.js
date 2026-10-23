@@ -566,7 +566,7 @@ test('G2.8 new photos are pending and only approved ones are discovery-eligible'
   const card = await photoService.primaryCard(account.id);
   assert.ok(card, 'an approved primary photo is eligible');
   assert.equal(card.width, TRANSFORMATIONS.card.width, 'and it is the small card transform');
-  assert.match(card.url, /c_fill,g_face,h_200,w_200/);
+  assert.match(card.url, /c_fill,g_face,h_640,w_640/);
 
   await Photo.updateOne({ _id: id }, { $set: { moderationStatus: 'rejected' } });
   assert.equal(await photoService.primaryCard(account.id), null, 'a rejected photo is not eligible');
@@ -857,7 +857,11 @@ test('G4.2 card payloads stay small (spec §18)', async (t) => {
   if (!requireDb(t)) return;
 
   const card = TRANSFORMATIONS.card;
-  assert.ok(card.width <= 400 && card.height <= 400, 'a card is small by construction');
+  // The card size follows the slot it renders in: a square cell is ~320-360 CSS
+  // px, so a retina screen needs ~640-720 real pixels. It must be sharp there
+  // and still cheaper than the profile variant a feed never needs.
+  assert.ok(card.width >= 400, 'a card is large enough to stay sharp on a 2x display');
+  assert.ok(card.width < TRANSFORMATIONS.profile.width, 'and smaller than the profile size');
   assert.equal(card.crop, 'fill');
   assert.equal(card.gravity, 'face');
 
@@ -865,7 +869,10 @@ test('G4.2 card payloads stay small (spec §18)', async (t) => {
   for (const variant of ['card', 'profile', 'gallery']) {
     assert.ok(variants[variant].url.includes(`h_${TRANSFORMATIONS[variant].height},w_${TRANSFORMATIONS[variant].width}`));
   }
-  assert.ok(!variants.card.url.includes('h_600'), 'the card URL never requests the profile size');
+  assert.ok(
+    !variants.card.url.includes(`h_${TRANSFORMATIONS.profile.height}`),
+    'the card URL never requests the profile size'
+  );
 
   // The discovery card carries one small URL and nothing else about photos.
   const { discoveryCard } = require('../src/services/profileSerializer');

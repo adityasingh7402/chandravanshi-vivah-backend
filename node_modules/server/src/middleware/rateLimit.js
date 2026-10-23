@@ -23,6 +23,10 @@ function createRateLimiter(options = {}) {
     message = MESSAGES.RATE_LIMITED,
     keyGenerator,
     skip,
+    // Lets a normal, successful call be free and reserve the budget for rejected
+    // ones — the right shape for refresh, where every page load is a legitimate
+    // request and only a bad token is worth throttling.
+    skipSuccessfulRequests = false,
     // Express-rate-limit's own option set. A caller that keys by account and
     // action type (step 10) deliberately does not key by IP; that makes one of
     // the library's default validations inapplicable, so it is turned off here
@@ -44,6 +48,7 @@ function createRateLimiter(options = {}) {
     legacyHeaders: false,
     keyGenerator,
     skip,
+    skipSuccessfulRequests,
     ...(validate === undefined ? {} : { validate }),
     handler: (req, res) => {
       logger.warn({ reqId: req.id, route: routeOf(req), limiter: name }, 'rate limit exceeded');

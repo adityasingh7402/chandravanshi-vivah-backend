@@ -199,7 +199,12 @@ async function createFromUpload(userId, input) {
     // Appended to the end of the gallery; `reorder` is what changes this.
     sortOrder: existingCount,
     // Spec §17, §101: nothing is eligible for discovery until it is approved.
-    moderationStatus: MODERATION_STATUS.PENDING
+    // `PHOTO_AUTO_APPROVE` is the development stand-in (refused in production):
+    // with no moderator around, a `pending` photo would never become visible and
+    // every profile would show the initials placeholder forever.
+    moderationStatus: config.media.photoAutoApprove
+      ? MODERATION_STATUS.APPROVED
+      : MODERATION_STATUS.PENDING
   });
 
   try {
