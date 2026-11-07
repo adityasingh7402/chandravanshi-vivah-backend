@@ -32,6 +32,7 @@ const CARD_PROJECTION = Object.freeze({
   'community.surnameName': 1,
   'community.gotraName': 1,
   'location.cityName': 1,
+  'location.stateName': 1,
   'education.degreeName': 1,
   'career.occupationName': 1,
   'profile.isVerified': 1,

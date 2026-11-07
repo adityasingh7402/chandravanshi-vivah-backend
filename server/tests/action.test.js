@@ -78,8 +78,14 @@ const Block = mongoose.models.Block || mongoose.model('Block', blockSchema);
 const PASSWORD = 'correct-horse-battery';
 const CARD_KEYS = [
   'age', 'city', 'degree', 'gotra', 'height', 'lastActiveAt',
-  'name', 'occupation', 'primaryPhoto', 'profileId', 'surname', 'verified'
+  'name', 'occupation', 'primaryPhoto', 'profileId', 'stateName', 'surname', 'verified'
 ].sort();
+
+/**
+ * A `listOwn` card is the §70 card plus `interactionId` — the caller's own action
+ * row id, the only value that lets a listed shortlist be un-shortlisted.
+ */
+const OWN_CARD_KEYS = [...CARD_KEYS, 'interactionId'].sort();
 
 let server;
 let base;
@@ -386,7 +392,8 @@ test('G2.4 the shortlist listing is card-shaped, newest first (command 4)', asyn
   const items = res.json.data.items;
   assert.ok(items.length >= 2, 'both shortlists must list');
   for (const item of items) {
-    assert.deepEqual(Object.keys(item).sort(), CARD_KEYS, 'a listing row must be exactly the §70 card');
+    assert.deepEqual(Object.keys(item).sort(), OWN_CARD_KEYS, 'a listing row must be the §70 card plus its action id');
+    assert.match(item.interactionId, /^[a-f\d]{24}$/i, 'the row id is the delete key');
   }
   // Newest first: the second shortlist precedes the first.
   const ids = items.map((item) => item.profileId);
@@ -400,6 +407,12 @@ test('G2.5 removing an action works for the owner and changes the listing', asyn
   const target = await publishedAccount();
   const created = await record(actor.token, { toUserId: target.id, type: ACTION_TYPE.SHORTLIST });
   const id = created.json.data.interaction.id;
+
+  // The listing itself must expose the delete key: a UI that only ever saw the
+  // list needs `interactionId` to un-shortlist, and it must be the same row id.
+  const listed = await api('/api/v1/interactions?type=shortlist', { token: actor.token });
+  const row = listed.json.data.items.find((item) => item.profileId === target.publicProfileId);
+  assert.equal(row.interactionId, id, 'the listing carries the id the client deletes with');
 
   const removed = await api(`/api/v1/interactions/${id}`, { method: 'DELETE', token: actor.token });
   assert.equal(removed.status, 200, JSON.stringify(removed.json));
@@ -617,7 +630,7 @@ test('G4.2 / G4.4 the shortlist uses the shared card projection, not full docume
 
   const items = (await actionService.listShortlisted(actor.id, {})).items;
   assert.equal(items.length, 1);
-  assert.deepEqual(Object.keys(items[0]).sort(), CARD_KEYS, 'the DTO is exactly the card');
+  assert.deepEqual(Object.keys(items[0]).sort(), OWN_CARD_KEYS, 'the DTO is the card plus its action id');
 });
 
 test('G4.3 concurrent identical writes still produce one row (unique index)', async (t) => {

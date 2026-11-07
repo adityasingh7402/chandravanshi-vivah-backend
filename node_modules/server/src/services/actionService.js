@@ -183,6 +183,12 @@ async function remove(actorId, interactionId) {
  * A profile that is no longer `active` drops out of the page rather than being
  * rendered from a stale action (spec §56, §58, §112).
  *
+ * Each card also carries `interactionId` — the caller's own action row id, which
+ * is what `DELETE /interactions/:interactionId` takes. Without it a saved card
+ * could be shown as shortlisted but never un-shortlisted, because the card's
+ * `profileId` is not the action id. `toItems` is order-preserving, so pairing
+ * each card with its row by index is exact.
+ *
  * @param {string} actorId from `req.auth.userId`
  * @param {{type?: string, limit?: number, cursor?: string}} query validated query
  */
@@ -205,8 +211,11 @@ async function listOwn(actorId, query = {}) {
     .lean();
 
   const byUser = new Map(profiles.map((profile) => [String(profile.userId), profile]));
-  const ordered = page.map((row) => byUser.get(String(row.toUserId))).filter(Boolean);
-  const items = await searchService.toItems(ordered);
+  const pairs = page
+    .map((row) => ({ row, profile: byUser.get(String(row.toUserId)) }))
+    .filter((pair) => pair.profile !== undefined);
+  const cards = await searchService.toItems(pairs.map((pair) => pair.profile));
+  const items = cards.map((card, index) => ({ ...card, interactionId: String(pairs[index].row._id) }));
 
   const last = page[page.length - 1];
   return {

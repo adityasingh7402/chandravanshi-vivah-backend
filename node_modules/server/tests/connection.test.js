@@ -92,7 +92,7 @@ const Block = mongoose.models.Block || mongoose.model('Block', blockSchema);
 const PASSWORD = 'correct-horse-battery';
 const CARD_KEYS = [
   'age', 'city', 'degree', 'gotra', 'height', 'lastActiveAt',
-  'name', 'occupation', 'primaryPhoto', 'profileId', 'surname', 'verified'
+  'name', 'occupation', 'primaryPhoto', 'profileId', 'stateName', 'surname', 'verified'
 ].sort();
 
 let server;

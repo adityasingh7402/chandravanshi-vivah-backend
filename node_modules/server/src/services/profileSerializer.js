@@ -161,6 +161,7 @@ function discoveryCard(document, options = {}) {
     age: computeAge(basic.dateOfBirth),
     height: heightDisplay(basic.heightCm),
     city: location.cityName || null,
+    stateName: location.stateName || null,
     degree: education.degreeName || null,
     occupation: career.occupationName || null,
     surname: community.surnameName || null,

@@ -971,6 +971,7 @@ test('G4.4 the card stays small: projected fields, one photo URL, no populate (s
     'community.surnameName',
     'education.degreeName',
     'location.cityName',
+    'location.stateName',
     'profile.isVerified',
     'profile.lastActiveAt',
     'publicProfileId',

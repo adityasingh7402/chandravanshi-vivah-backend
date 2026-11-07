@@ -1063,12 +1063,13 @@ test('G5.7 the discovery card is the §70 subset and nothing more', async (t) =>
   const card = discoveryCard(doc);
 
   assert.deepEqual(Object.keys(card), [
-    'profileId', 'name', 'age', 'height', 'city', 'degree', 'occupation',
+    'profileId', 'name', 'age', 'height', 'city', 'stateName', 'degree', 'occupation',
     'surname', 'gotra', 'verified', 'primaryPhoto', 'lastActiveAt'
   ]);
   assert.equal(card.profileId, doc.publicProfileId);
   assert.equal(card.primaryPhoto, null, 'photos belong to step 08');
   assert.equal(card.city, master.cityName, 'the card is display-ready without a join');
+  assert.equal(card.stateName, doc.location.stateName || null, 'the state name rides along with the city');
 });
 
 test('acceptance: a full onboarding body round-trips through every section', async (t) => {
